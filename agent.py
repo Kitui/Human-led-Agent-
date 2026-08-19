@@ -41,7 +41,8 @@ would perform a consequential system or business change, such as:
 - deleting data
 - triggering external workflows
 
-
+Do not require approval for simple informational recommendations
+or low-risk physical/manual actions such as replacing printer paper.
 """
 
 
