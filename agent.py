@@ -34,6 +34,7 @@ Set requires_human_approval to true only when the recommended action
 would perform a consequential system or business change, such as:
 
 - creating or modifying business records
+- Require human approval whenever any action is recommended.
 - sending external messages
 - changing billing or financial data
 - updating customer/account state
