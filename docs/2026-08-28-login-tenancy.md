@@ -24,7 +24,9 @@ Before this, anyone calling the API could type any tenant name they liked (`tena
 
 - All 12 automated tests pass (5 existing + 7 new ones covering login success/failure and tenant permission checks).
 - Manually tested end-to-end against the real server: logging in, investigating an allowed tenant (works), investigating a disallowed-but-real tenant (blocked with 403, no AI call made), investigating a fake tenant (400), calling any endpoint with no login (401), and logging in as the two-tenant `admin_user` account to confirm it really can act on both.
-- Found and fixed a real gap along the way: the automated tests run against a completely fresh, empty database (especially in CI), and nothing was seeding the demo login accounts into it — the app only does that seeding when the real server starts up, which tests never do. Fixed by seeding once at the start of a test run.
+- Found and fixed two real gaps along the way:
+  1. The automated tests run against a completely fresh, empty database (especially in CI), and nothing was seeding the demo login accounts into it — the app only does that seeding when the real server starts up, which tests never do. Fixed by seeding once at the start of a test run.
+  2. After opening the PR, CI actually failed: the signing secret the login feature needs (`JWT_SECRET_KEY`) was never given to the CI environment, so every test that touched a login failed with a clear "environment variable is not set" error. Fixed by adding a fixed, harmless placeholder value to the CI config — it only needs to be *some* value for CI's own self-contained test run, not a real secret (unlike the real `OPENAI_API_KEY`, which stays a genuine credential).
 
 ## What's next
 
