@@ -1,11 +1,12 @@
 import os
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 
 import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from .db_models import Base, UserORM
+from .db_models import Base, TenantORM, UserORM
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -45,4 +46,22 @@ async def seed_demo_users() -> None:
         for username, password, tenant_ids in DEMO_USERS:
             password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             session.add(UserORM(username=username, password_hash=password_hash, tenant_ids=tenant_ids))
+        await session.commit()
+
+
+# Default tenants for this demo -- mirrors DEMO_USERS' seed-once pattern.
+DEFAULT_TENANTS = [
+    ("tenant_red", "Production"),
+    ("tenant_green", "Production"),
+]
+
+
+async def seed_default_tenants() -> None:
+    async with async_session_maker() as session:
+        existing = await session.execute(select(TenantORM.slug))
+        if existing.first() is not None:
+            return
+        now = datetime.now(timezone.utc)
+        for slug, environment in DEFAULT_TENANTS:
+            session.add(TenantORM(slug=slug, environment=environment, is_active=True, created_at=now))
         await session.commit()

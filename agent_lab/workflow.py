@@ -16,12 +16,7 @@ from .db_models import WorkflowRunORM, workflow_run_to_columns
 from .execution import execute_with_retry
 from .guardrails import validate_input
 from .models import ActionPoint, RunStatus, TraceEvent, WorkflowRun
-
-
-VALID_TENANTS = {
-    "tenant_red",
-    "tenant_green",
-}
+from .tenants import is_valid_active_tenant
 
 
 class InvalidTenantError(ValueError):
@@ -160,7 +155,11 @@ async def investigate_issue(
     tenant_id = tenant_id.strip()
     issue = issue.strip()
 
-    if tenant_id not in VALID_TENANTS:
+    # Eval cases (agent_lab/eval_cases.py) call this with persist=False and no
+    # db -- synthetic, pre-validated QA inputs never subject to real tenant
+    # rules, so skip the DB-backed check entirely rather than requiring a db
+    # just to satisfy it.
+    if db is not None and not await is_valid_active_tenant(db, tenant_id):
         raise InvalidTenantError("Invalid tenant.")
 
     if not issue:

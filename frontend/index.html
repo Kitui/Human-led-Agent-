@@ -25,6 +25,27 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="add-tenant-modal">
+  <div class="modal-card">
+    <h3 class="modal-title">Add Tenant</h3>
+    <form id="add-tenant-form">
+      <label class="field-label" for="add-tenant-slug">Tenant slug</label>
+      <input type="text" id="add-tenant-slug" placeholder="tenant_blue" required />
+      <label class="field-label" for="add-tenant-environment">Environment</label>
+      <select id="add-tenant-environment">
+        <option value="Production">Production</option>
+        <option value="Staging">Staging</option>
+        <option value="Sandbox">Sandbox</option>
+      </select>
+      <p class="banner hidden" id="add-tenant-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="add-tenant-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="add-tenant-submit-btn">Add Tenant</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="app hidden" id="app-root">
 
   <header class="topbar">
@@ -444,11 +465,52 @@
           <h1>Settings</h1>
           <p class="subtitle">Workspace configuration.</p>
         </div>
-        <div class="card">
-          <div class="field-row"><span class="label">Logged in as</span><span class="value" id="settings-username"></span></div>
-          <div class="field-row"><span class="label">API base URL</span><span class="value" id="settings-api-base"></span></div>
-          <div class="field-row"><span class="label">Valid tenants</span><span class="value" id="settings-valid-tenants"></span></div>
-          <div class="field-row"><span class="label">Run storage</span><span class="value">In-memory (demo). Recent Runs / Approvals are also cached locally in this browser.</span></div>
+
+        <div class="settings-tabs">
+          <button class="settings-tab-btn active" data-tab="general">General</button>
+          <button class="settings-tab-btn" data-tab="model">Model &amp; Prompt</button>
+          <button class="settings-tab-btn" data-tab="approval">Approval Policy</button>
+          <button class="settings-tab-btn" data-tab="integrations">Integrations</button>
+          <button class="settings-tab-btn" data-tab="observability">Observability</button>
+          <button class="settings-tab-btn" data-tab="security">Security</button>
+        </div>
+
+        <div class="settings-tab-panel active" data-tab-panel="general">
+          <div class="card">
+            <div class="field-row"><span class="label">Logged in as</span><span class="value" id="settings-username"></span></div>
+            <div class="field-row"><span class="label">API base URL</span><span class="value" id="settings-api-base"></span></div>
+            <div class="field-row"><span class="label">Valid tenants</span><span class="value" id="settings-valid-tenants"></span></div>
+            <div class="field-row"><span class="label">Run storage</span><span class="value">In-memory (demo). Recent Runs / Approvals are also cached locally in this browser.</span></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>Tenant Management</h2>
+              <button class="btn btn-primary" id="add-tenant-btn">+ Add Tenant</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Tenant</th><th>Environment</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody id="tenants-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-tab-panel" data-tab-panel="model">
+          <div class="card"><p class="empty-note">Coming soon — Model &amp; Prompt settings will be configurable per tenant in a future phase.</p></div>
+        </div>
+        <div class="settings-tab-panel" data-tab-panel="approval">
+          <div class="card"><p class="empty-note">Coming soon — Approval Policy settings will be configurable per tenant in a future phase.</p></div>
+        </div>
+        <div class="settings-tab-panel" data-tab-panel="integrations">
+          <div class="card"><p class="empty-note">Coming soon — Integrations settings will be configurable per tenant in a future phase.</p></div>
+        </div>
+        <div class="settings-tab-panel" data-tab-panel="observability">
+          <div class="card"><p class="empty-note">Coming soon — Observability settings will be configurable per tenant in a future phase.</p></div>
+        </div>
+        <div class="settings-tab-panel" data-tab-panel="security">
+          <div class="card"><p class="empty-note">Coming soon. Security is not planned as a real feature in this lab.</p></div>
         </div>
       </section>
 
