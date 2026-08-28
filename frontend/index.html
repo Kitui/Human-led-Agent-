@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Human-Led Agent Lab</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3"/><path d="M8.5 14h7"/></svg>
+      </div>
+      <span class="brand">Human-Led Agent Lab</span>
+      <div class="tenant-select" id="tenant-select">
+        <span id="tenant-select-label">tenant_red</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        <div class="tenant-menu" id="tenant-menu"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="status-pill" id="api-status">
+        <span class="dot" id="api-status-dot"></span>
+        <span id="api-status-text">Checking…</span>
+      </span>
+      <button class="icon-btn" title="Help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>
+      </button>
+      <button class="icon-btn" title="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/></svg>
+      </button>
+      <div class="avatar-wrap">
+        <span class="avatar">SK</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar" id="sidebar">
+      <nav class="nav">
+        <a class="nav-item" data-page="dashboard" href="#dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a class="nav-item active" data-page="investigate" href="#investigate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <span>Investigate</span>
+        </a>
+        <a class="nav-item" data-page="runs" href="#runs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5-6-3.5Z"/></svg>
+          <span>Runs</span>
+        </a>
+        <a class="nav-item" data-page="approvals" href="#approvals">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6.5v5c0 4.6 3.2 8.4 8 9.5 4.8-1.1 8-4.9 8-9.5v-5L12 3Z"/><path d="m9.5 12 2 2 3.5-3.5"/></svg>
+          <span>Approvals</span>
+        </a>
+        <a class="nav-item" data-page="traces" href="#traces">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M6 8.4V15.6"/><path d="M8.2 6.9 15.8 10.9"/><path d="M8.2 17.1 15.8 13.1"/></svg>
+          <span>Traces</span>
+        </a>
+        <a class="nav-item" data-page="evals" href="#evals">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M11 20V4"/><path d="M18 20v-7"/></svg>
+          <span>Evals</span>
+        </a>
+        <a class="nav-item" data-page="settings" href="#settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.4.66.73.85.24.14.5.2.78.24H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          <span>Settings</span>
+        </a>
+      </nav>
+      <button class="collapse-btn" id="collapse-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Collapse</span>
+      </button>
+    </aside>
+
+    <main class="content">
+
+      <div id="banner" class="banner hidden"></div>
+
+      <!-- DASHBOARD -->
+      <section class="page" data-page="dashboard">
+        <div class="page-head">
+          <h1>Dashboard</h1>
+          <p class="subtitle">Monitor the health and performance of your human-led AI system.</p>
+        </div>
+
+        <div class="stat-grid five" id="dashboard-stats"></div>
+
+        <div class="dash-grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h2>Run Volume (Last 7 Days)
+                <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </h2>
+              <a href="#runs" class="link-sm">View full report
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+              </a>
+            </div>
+            <div id="volume-chart" class="chart-container"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Run Status Breakdown
+                <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </h2>
+              <a href="#runs" class="link-sm">View full report
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+              </a>
+            </div>
+            <div id="status-donut" class="chart-container"></div>
+          </div>
+        </div>
+
+        <div class="dash-grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h2>Recent Activity</h2>
+            </div>
+            <div id="activity-list" class="activity-list"></div>
+            <a href="#traces" class="link-sm block-link">View all activity</a>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h2>System Health
+                <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </h2>
+            </div>
+            <div id="health-list" class="health-list"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Recent Runs</h2>
+            <a href="#runs" class="link-sm">View all runs
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+            </a>
+          </div>
+          <div id="dashboard-runs-table"></div>
+        </div>
+      </section>
+
+      <!-- INVESTIGATE -->
+      <section class="page active" data-page="investigate">
+        <div class="page-head">
+          <h1>Investigate
+            <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </h1>
+          <p class="subtitle">Describe an issue and let the agent investigate and propose an action.</p>
+        </div>
+
+        <div class="investigate-grid">
+          <div class="col-main">
+
+            <div class="card">
+              <label class="field-label" for="issue-input">Describe the issue</label>
+              <textarea id="issue-input" maxlength="2000" placeholder="Describe the operational issue…"></textarea>
+              <div class="card-footer-row">
+                <span class="char-count"><span id="char-count">0</span> / 2000</span>
+                <button class="btn btn-primary" id="investigate-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4"/><path d="M12 17v4"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="m5.6 5.6 2.8 2.8"/><path d="m15.6 15.6 2.8 2.8"/><path d="m18.4 5.6-2.8 2.8"/><path d="m8.4 15.6-2.8 2.8"/></svg>
+                  <span>Investigate</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="section-title">Investigation Workflow</h3>
+              <div class="stepper" id="stepper"></div>
+            </div>
+
+            <div class="card" id="action-point-card" hidden>
+              <h3 class="section-title accent" id="action-point-heading">Action Point</h3>
+              <div class="ap-grid" id="ap-fields"></div>
+              <div class="ap-actions" id="ap-actions"></div>
+            </div>
+
+          </div>
+
+          <div class="col-side">
+            <div class="card trace-card">
+              <div class="card-head">
+                <h2>Trace / Logs</h2>
+                <a href="#traces" class="link-sm">View full trace
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+                </a>
+              </div>
+              <div id="trace-timeline" class="timeline">
+                <p class="empty-note">Run an investigation to see trace events here.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card runs-card">
+          <div class="card-head">
+            <h2>Recent Runs</h2>
+            <a href="#runs" class="link-sm">View all runs
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+            </a>
+          </div>
+          <div id="recent-runs-table"></div>
+        </div>
+      </section>
+
+      <!-- RUNS -->
+      <section class="page" data-page="runs">
+        <div class="page-head">
+          <h1>Runs
+            <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </h1>
+          <p class="subtitle">Monitor and review workflow executions across tenants.</p>
+        </div>
+
+        <div class="card runs-filter-card">
+          <div class="filter-row">
+            <div class="search-input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="runs-search" placeholder="Search runs by ID, issue, or action point…" />
+            </div>
+            <div class="filter-group">
+              <span class="filter-label">Status</span>
+              <div class="chip-group" id="runs-status-chips"></div>
+            </div>
+          </div>
+          <div class="filter-row">
+            <div class="filter-group">
+              <span class="filter-label">Priority</span>
+              <select id="runs-priority-filter">
+                <option value="all">All</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <span class="filter-label">Date range</span>
+              <div class="date-range-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+                <input type="text" id="runs-date-range" placeholder="All dates" readonly />
+                <button type="button" class="date-clear-btn" id="runs-date-clear" title="Clear date range" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="runs-refresh-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="runs-page-grid" id="runs-page-grid">
+          <div class="card runs-table-card">
+            <p class="runs-count-label" id="runs-count-label"></p>
+            <div id="runs-table-full"></div>
+            <div class="pagination-row" id="runs-pagination"></div>
+          </div>
+
+          <div class="card run-detail-card" id="run-detail-card" hidden></div>
+        </div>
+      </section>
+
+      <!-- APPROVALS -->
+      <section class="page" data-page="approvals">
+        <div class="page-head">
+          <h1>Approvals
+            <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </h1>
+          <p class="subtitle">Review and approve agent-recommended actions to ensure human oversight and controlled execution.</p>
+        </div>
+
+        <div class="stat-grid" id="approvals-stats"></div>
+
+        <div class="runs-page-grid" id="approvals-page-grid">
+          <div class="card approvals-queue-card">
+            <div class="card-head">
+              <h2 id="approvals-queue-title">Approvals Queue</h2>
+              <div class="approvals-toolbar">
+                <select id="approvals-priority-filter">
+                  <option value="all">Priority: All</option>
+                  <option value="low">Priority: Low</option>
+                  <option value="medium">Priority: Medium</option>
+                  <option value="high">Priority: High</option>
+                  <option value="critical">Priority: Critical</option>
+                </select>
+                <button class="icon-btn" id="approvals-search-toggle" title="Search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="search-input-wrap hidden" id="approvals-search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="approvals-search" placeholder="Search by run ID or title…" />
+            </div>
+            <div id="approvals-table"></div>
+            <div class="pagination-row" id="approvals-pagination"></div>
+          </div>
+
+          <div class="card approval-detail-card" id="approval-detail-card" hidden></div>
+        </div>
+      </section>
+
+      <!-- TRACES -->
+      <section class="page" data-page="traces">
+        <div class="page-head">
+          <h1>Traces
+            <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </h1>
+          <p class="subtitle">Inspect full run execution details including each step, inputs, outputs, and system activity.</p>
+        </div>
+
+        <div class="card traces-filter-card">
+          <div class="filter-row-cols">
+            <div class="filter-col" style="flex:1.4;">
+              <span class="filter-label">Search by Run ID</span>
+              <div class="search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" id="traces-search" placeholder="e.g., run_8367f2d4" />
+              </div>
+            </div>
+            <div class="filter-col">
+              <span class="filter-label">Date range</span>
+              <div class="date-range-wrap" id="traces-date-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+                <input type="text" id="traces-date-range" placeholder="All dates" readonly />
+                <button type="button" class="date-clear-btn" id="traces-date-clear" title="Clear date range" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="filter-col">
+              <span class="filter-label">Status</span>
+              <select id="traces-status-filter">
+                <option value="all">All statuses</option>
+                <option value="awaiting_approval">Awaiting Approval</option>
+                <option value="investigating">Investigating</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            <button class="link-sm traces-export-link" id="traces-export-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+              Export trace
+            </button>
+          </div>
+        </div>
+
+        <div class="traces-grid-v2" id="traces-grid-v2">
+          <div class="card traces-list-card">
+            <h3 class="section-title">Recent Traces</h3>
+            <div id="traces-run-list" class="trace-run-list-v2"></div>
+            <a href="#" class="link-sm block-link" id="traces-view-all">View all traces</a>
+          </div>
+
+          <div class="trace-detail-col" id="trace-detail-card">
+            <div class="card"><p class="empty-note">Select a run on the left to inspect its trace.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- EVALS -->
+      <section class="page" data-page="evals">
+        <div class="page-head evals-page-head">
+          <div>
+            <h1>Evals
+              <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </h1>
+            <p class="subtitle">Measure agent quality, track regressions, and guard deployments with evaluation suites.</p>
+          </div>
+          <button class="btn btn-primary" id="evals-run-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18l15-9L5 3Z"/></svg>
+            <span>Run Evals</span>
+          </button>
+        </div>
+
+        <div class="stat-grid" id="evals-stats"></div>
+
+        <div class="dash-grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h2>Eval Score Over Time
+                <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </h2>
+              <a href="#" class="link-sm" id="evals-view-all-runs">View all runs
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+              </a>
+            </div>
+            <div id="evals-score-chart" class="chart-container"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Pass / Fail by Category
+                <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </h2>
+            </div>
+            <div id="evals-category-breakdown"></div>
+          </div>
+        </div>
+
+        <div class="dash-grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h2>Recent Eval Suites</h2>
+            </div>
+            <div id="evals-suites-table"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Failed Cases / Regressions</h2>
+            </div>
+            <div id="evals-failed-cases"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="page" data-page="settings">
+        <div class="page-head">
+          <h1>Settings</h1>
+          <p class="subtitle">Workspace configuration.</p>
+        </div>
+        <div class="card">
+          <div class="field-row"><span class="label">API base URL</span><span class="value" id="settings-api-base"></span></div>
+          <div class="field-row"><span class="label">Valid tenants</span><span class="value">tenant_red, tenant_green</span></div>
+          <div class="field-row"><span class="label">Run storage</span><span class="value">In-memory (demo). Recent Runs / Approvals are also cached locally in this browser.</span></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -14,6 +14,24 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: agent_lab
+          POSTGRES_PASSWORD: agent_lab
+          POSTGRES_DB: agent_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agent_lab -d agent_lab"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://agent_lab:agent_lab@localhost:5432/agent_lab
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,4 +52,4 @@ jobs:
       - name: Run AI evaluation suite
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python evals.py
+        run: python evals/evals.py

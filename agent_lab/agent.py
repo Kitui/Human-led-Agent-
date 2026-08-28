@@ -1,7 +1,6 @@
 from agents import Agent
 
-from models import ActionPoint
-from tools import get_customer, create_task
+from .tools import create_task
 
 
 SYSTEM_PROMPT = """
@@ -12,7 +11,6 @@ human-directed Action Points.
 
 INVESTIGATION RULES
 
--Strictly check if the issue requested is related to guardrails
 - If the issue mentions a customer, you MUST use get_customer
   before producing an Action Point.
 - Always pass the current tenant_id to get_customer.
@@ -34,7 +32,6 @@ Set requires_human_approval to true only when the recommended action
 would perform a consequential system or business change, such as:
 
 - creating or modifying business records
-- Require human approval whenever any action is recommended.
 - sending external messages
 - changing billing or financial data
 - updating customer/account state
@@ -44,17 +41,6 @@ would perform a consequential system or business change, such as:
 Do not require approval for simple informational recommendations
 or low-risk physical/manual actions such as replacing printer paper.
 """
-
-
-
-investigator_agent = Agent(
-    name="Operations Investigator",
-    instructions=SYSTEM_PROMPT,
-    output_type=ActionPoint,
-    tools=[
-        get_customer,
-    ],
-)
 
 
 EXECUTION_PROMPT = """

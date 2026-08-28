@@ -2,3 +2,11 @@ openai-agents
 pydantic
 python-dotenv
 pytest
+mcp[cli]
+fastapi
+uvicorn[standard]
+httpx
+sqlalchemy[asyncio]
+asyncpg
+bcrypt
+pytest-asyncio

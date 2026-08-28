@@ -1,4 +1,4 @@
-from models import ActionPoint
+from agent_lab.models import ActionPoint
 
 
 def test_valid_action_point():
