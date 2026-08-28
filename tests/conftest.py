@@ -12,12 +12,13 @@ if str(ROOT) not in sys.path:
 
 import pytest_asyncio
 from dotenv import load_dotenv
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 load_dotenv()
 
 from agent_lab.api import app
-from agent_lab.db import engine, get_db
+from agent_lab.db import engine, get_db, seed_demo_users
 from agent_lab.db_models import Base
 
 
@@ -25,6 +26,11 @@ from agent_lab.db_models import Base
 async def _schema():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # CI starts a brand-new, empty Postgres and never runs the app's
+    # lifespan (that's what normally seeds demo users) -- seed here so
+    # auth tests have real users to log in as. No-ops if users already
+    # exist (e.g. a local dev database that's already been seeded).
+    await seed_demo_users()
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -45,3 +51,19 @@ async def db_session(_schema):
     await session.close()
     await transaction.rollback()
     await connection.close()
+
+
+@pytest_asyncio.fixture
+async def client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def auth_headers(client):
+    async def _headers(username: str, password: str) -> dict[str, str]:
+        response = await client.post("/auth/login", json={"username": username, "password": password})
+        token = response.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
+    return _headers

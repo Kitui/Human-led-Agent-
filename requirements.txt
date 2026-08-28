@@ -9,4 +9,5 @@ httpx
 sqlalchemy[asyncio]
 asyncpg
 bcrypt
+PyJWT
 pytest-asyncio
