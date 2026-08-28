@@ -784,3 +784,13 @@ tbody tr.row-selected { background: var(--primary-bg); }
 .modal-title { margin: 0 0 8px; font-size: 15.5px; font-weight: 700; }
 .modal-message { margin: 0 0 20px; font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ---------- Login screen ---------- */
+.login-overlay { background: var(--bg); }
+
+#login-form input[type="text"],
+#login-form input[type="password"] {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; outline: none; margin-bottom: 14px; display: block;
+}
+#login-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }

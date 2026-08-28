@@ -1,13 +1,15 @@
 /* Human-Led Agent Lab — entry point: routing, nav, boot */
-import { qs, qsa, API_BASE, checkHealth } from "./shared.js";
+import { qs, qsa, API_BASE, checkHealth, getAuthSession } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
 import { renderRunsPage } from "./runs.js";
 import { renderApprovalsPage } from "./approvals.js";
 import { renderDashboardPage } from "./dashboard.js";
 import { renderTracesPage } from "./traces.js";
 import { renderEvalsPage } from "./evals.js";
-
-const VALID_TENANTS = ["tenant_red", "tenant_green"];
+import {
+  hasValidSession, showLoginScreen, hideLoginScreen, initLoginForm,
+  currentTenantIds, currentUsername, logout,
+} from "./auth.js";
 
 /* ---------------- routing / nav ---------------- */
 const PAGE_RENDERERS = {
@@ -42,7 +44,9 @@ function initRouter() {
 function initTenantSelect() {
   const wrap = qs("#tenant-select");
   const menu = qs("#tenant-menu");
-  menu.innerHTML = VALID_TENANTS.map((t) => `<button data-tenant="${t}">${t}</button>`).join("");
+  const tenants = currentTenantIds();
+  menu.innerHTML = tenants.map((t) => `<button data-tenant="${t}">${t}</button>`).join("");
+  qs("#tenant-select-label").textContent = tenants[0] || "";
   wrap.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
     wrap.classList.toggle("open");
@@ -56,6 +60,22 @@ function initTenantSelect() {
   document.addEventListener("click", (e) => {
     if (!wrap.contains(e.target)) wrap.classList.remove("open");
   });
+}
+
+/* ---------------- avatar / logout ---------------- */
+function initAvatar() {
+  const username = currentUsername() || "?";
+  qs("#avatar-badge").textContent = username.slice(0, 2).toUpperCase();
+  const wrap = qs("#avatar-wrap");
+  wrap.title = `Log out (${username})`;
+  wrap.addEventListener("click", logout);
+}
+
+/* ---------------- settings identity ---------------- */
+function updateSettingsIdentity() {
+  const session = getAuthSession();
+  qs("#settings-username").textContent = session ? session.username : "—";
+  qs("#settings-valid-tenants").textContent = session ? session.tenantIds.join(", ") : "—";
 }
 
 /* ---------------- misc UI wiring ---------------- */
@@ -75,12 +95,25 @@ function initMisc() {
   qs("#settings-api-base").textContent = API_BASE || `${location.origin} (same-origin)`;
 }
 
-/* ---------------- boot ---------------- */
-document.addEventListener("DOMContentLoaded", async () => {
-  initMisc();
+/* ---------------- app start (post-login / restored session) ---------------- */
+async function startApp() {
   initTenantSelect();
+  initAvatar();
+  updateSettingsIdentity();
   renderStepper("new");
   await checkHealth(); // resolve apiVersion before the first page render needs it
   initRouter();
   setInterval(checkHealth, 15000);
+}
+
+/* ---------------- boot ---------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  initMisc();
+  initLoginForm(startApp);
+  if (hasValidSession()) {
+    hideLoginScreen();
+    startApp();
+  } else {
+    showLoginScreen();
+  }
 });

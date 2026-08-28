@@ -8,7 +8,24 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="app">
+<div class="modal-overlay login-overlay" id="login-screen">
+  <div class="modal-card login-card">
+    <h3 class="modal-title">Sign in</h3>
+    <p class="modal-message">Sign in with your Human-Led Agent Lab account to continue.</p>
+    <form id="login-form">
+      <label class="field-label" for="login-username">Username</label>
+      <input type="text" id="login-username" autocomplete="username" required />
+      <label class="field-label" for="login-password">Password</label>
+      <input type="password" id="login-password" autocomplete="current-password" required />
+      <p class="banner hidden" id="login-error"></p>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary" id="login-submit-btn">Sign in</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="app hidden" id="app-root">
 
   <header class="topbar">
     <div class="topbar-left">
@@ -33,8 +50,8 @@
       <button class="icon-btn" title="Notifications">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/></svg>
       </button>
-      <div class="avatar-wrap">
-        <span class="avatar">SK</span>
+      <div class="avatar-wrap" id="avatar-wrap">
+        <span class="avatar" id="avatar-badge">SK</span>
         <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
       </div>
     </div>
@@ -428,8 +445,9 @@
           <p class="subtitle">Workspace configuration.</p>
         </div>
         <div class="card">
+          <div class="field-row"><span class="label">Logged in as</span><span class="value" id="settings-username"></span></div>
           <div class="field-row"><span class="label">API base URL</span><span class="value" id="settings-api-base"></span></div>
-          <div class="field-row"><span class="label">Valid tenants</span><span class="value">tenant_red, tenant_green</span></div>
+          <div class="field-row"><span class="label">Valid tenants</span><span class="value" id="settings-valid-tenants"></span></div>
           <div class="field-row"><span class="label">Run storage</span><span class="value">In-memory (demo). Recent Runs / Approvals are also cached locally in this browser.</span></div>
         </div>
       </section>
