@@ -794,3 +794,19 @@ tbody tr.row-selected { background: var(--primary-bg); }
   padding: 9px 12px; outline: none; margin-bottom: 14px; display: block;
 }
 #login-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+
+/* ---------- Add Tenant modal ---------- */
+#add-tenant-form input[type="text"],
+#add-tenant-form select {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; outline: none; margin-bottom: 14px; display: block;
+}
+#add-tenant-form input:focus,
+#add-tenant-form select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+
+/* ---------- Settings tabs ---------- */
+.settings-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.settings-tab-btn { border: none; background: none; padding: 9px 4px; margin-right: 20px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.settings-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.settings-tab-panel { display: none; }
+.settings-tab-panel.active { display: block; }

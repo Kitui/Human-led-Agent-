@@ -1,11 +1,12 @@
 /* Human-Led Agent Lab — entry point: routing, nav, boot */
-import { qs, qsa, API_BASE, checkHealth, getAuthSession } from "./shared.js";
+import { qs, qsa, API_BASE, checkHealth } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
 import { renderRunsPage } from "./runs.js";
 import { renderApprovalsPage } from "./approvals.js";
 import { renderDashboardPage } from "./dashboard.js";
 import { renderTracesPage } from "./traces.js";
 import { renderEvalsPage } from "./evals.js";
+import { renderSettingsPage } from "./settings.js";
 import {
   hasValidSession, showLoginScreen, hideLoginScreen, initLoginForm,
   currentTenantIds, currentUsername, logout,
@@ -19,6 +20,7 @@ const PAGE_RENDERERS = {
   dashboard: renderDashboardPage,
   traces: renderTracesPage,
   evals: renderEvalsPage,
+  settings: renderSettingsPage,
 };
 
 function navigateTo(page) {
@@ -71,13 +73,6 @@ function initAvatar() {
   wrap.addEventListener("click", logout);
 }
 
-/* ---------------- settings identity ---------------- */
-function updateSettingsIdentity() {
-  const session = getAuthSession();
-  qs("#settings-username").textContent = session ? session.username : "—";
-  qs("#settings-valid-tenants").textContent = session ? session.tenantIds.join(", ") : "—";
-}
-
 /* ---------------- misc UI wiring ---------------- */
 function initMisc() {
   qs("#investigate-btn").addEventListener("click", doInvestigate);
@@ -99,7 +94,6 @@ function initMisc() {
 async function startApp() {
   initTenantSelect();
   initAvatar();
-  updateSettingsIdentity();
   renderStepper("new");
   await checkHealth(); // resolve apiVersion before the first page render needs it
   initRouter();

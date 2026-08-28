@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 load_dotenv()
 
 from agent_lab.api import app
-from agent_lab.db import engine, get_db, seed_demo_users
+from agent_lab.db import engine, get_db, seed_default_tenants, seed_demo_users
 from agent_lab.db_models import Base
 
 
@@ -27,10 +27,11 @@ async def _schema():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     # CI starts a brand-new, empty Postgres and never runs the app's
-    # lifespan (that's what normally seeds demo users) -- seed here so
-    # auth tests have real users to log in as. No-ops if users already
-    # exist (e.g. a local dev database that's already been seeded).
+    # lifespan (that's what normally seeds demo users/tenants) -- seed here
+    # so tests have real users and tenants to work with. No-ops if either
+    # already exist (e.g. a local dev database that's already been seeded).
     await seed_demo_users()
+    await seed_default_tenants()
 
 
 @pytest_asyncio.fixture(autouse=True)

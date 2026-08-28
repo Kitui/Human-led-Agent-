@@ -110,3 +110,10 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     tenant_ids: list[str]
+
+
+class Tenant(BaseModel):
+    slug: str
+    environment: Literal["Production", "Staging", "Sandbox"]
+    is_active: bool
+    created_at: datetime
