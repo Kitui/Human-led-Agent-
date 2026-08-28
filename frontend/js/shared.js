@@ -122,15 +122,57 @@ export function traceIconSvg(kind) {
   return icons[kind] || icons.client;
 }
 
+/* ---------------- auth session ----------------
+ * Same reasoning as pendingTraceRunId below: ES module bindings are
+ * read-only from importing modules, so the current session is a private
+ * variable with exported getter/setter/clear functions. api() reads it
+ * directly (no circular import -- auth.js imports api/session helpers FROM
+ * this module; this module never imports auth.js). Persisted to
+ * sessionStorage (not localStorage, unlike the run-history cache below) --
+ * it's a bearer credential tied to a 1-hour token lifetime, not app data
+ * worth keeping across browser restarts.
+ */
+const AUTH_KEY = "hlal_auth_session";
+const NO_AUTH_PATHS = new Set(["/health", "/auth/login"]);
+
+function readStoredSession() {
+  try {
+    const raw = sessionStorage.getItem(AUTH_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && parsed.accessToken ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+let authSession = readStoredSession();
+
+export function getAuthSession() { return authSession; }
+export function setAuthSession(session) {
+  authSession = session;
+  try { sessionStorage.setItem(AUTH_KEY, JSON.stringify(session)); } catch (_) { /* ignore quota errors */ }
+}
+export function clearAuthSession() {
+  authSession = null;
+  try { sessionStorage.removeItem(AUTH_KEY); } catch (_) { /* ignore */ }
+}
+
 /* ---------------- network ---------------- */
 export async function api(path, opts) {
-  const res = await fetch(API_BASE + path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
+  opts = opts || {};
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (!NO_AUTH_PATHS.has(path) && authSession) {
+    headers.Authorization = `Bearer ${authSession.accessToken}`;
+  }
+  const res = await fetch(API_BASE + path, { ...opts, headers });
   let body = null;
   try { body = await res.json(); } catch (_) { /* no body */ }
   if (!res.ok) {
+    if (res.status === 401 && !NO_AUTH_PATHS.has(path)) {
+      clearAuthSession();
+      location.reload();
+      throw new Error("Session expired.");
+    }
     const detail = body && body.detail ? body.detail : res.statusText;
     const err = new Error(detail);
     err.status = res.status;
