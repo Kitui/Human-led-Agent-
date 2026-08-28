@@ -10,10 +10,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from .auth import authenticate_user, create_access_token, get_current_user
 from .db import get_db, init_db, seed_demo_users
 from .evals_runner import list_eval_runs, run_eval_suite
-from .models import EvalSuiteRun, RunStatus, WorkflowRun
+from .models import AuthenticatedUser, EvalSuiteRun, LoginResponse, RunStatus, WorkflowRun
 from .workflow import (
+    VALID_TENANTS,
     GuardrailBlockedError,
     InvalidRunStateError,
     InvalidTenantError,
@@ -44,6 +46,11 @@ app = FastAPI(
 )
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 class InvestigationRequest(BaseModel):
     tenant_id: str = Field(examples=["tenant_red"])
     issue: str = Field(
@@ -68,11 +75,25 @@ async def health() -> dict:
     }
 
 
+@app.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)) -> LoginResponse:
+    user = await authenticate_user(db, request.username, request.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    return LoginResponse(access_token=create_access_token(user), tenant_ids=user.tenant_ids)
+
+
 @app.post("/investigate", response_model=WorkflowRun)
 async def investigate(
     request: InvestigationRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowRun:
+    if request.tenant_id not in VALID_TENANTS:
+        raise HTTPException(status_code=400, detail="Invalid tenant.")
+    if request.tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
     try:
         return await investigate_issue(
             tenant_id=request.tenant_id,
@@ -91,25 +112,50 @@ async def investigate(
 async def read_runs(
     status: RunStatus | None = Query(default=None),
     tenant_id: str | None = Query(default=None),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[WorkflowRun]:
-    return await list_runs(db, status=status, tenant_id=tenant_id)
+    if tenant_id is not None:
+        if tenant_id not in current_user.tenant_ids:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+        return await list_runs(db, status=status, tenant_id=tenant_id)
+
+    runs = await list_runs(db, status=status)
+    return [run for run in runs if run.tenant_id in current_user.tenant_ids]
 
 
 @app.get("/runs/{run_id}", response_model=WorkflowRun)
-async def read_run(run_id: str, db: AsyncSession = Depends(get_db)) -> WorkflowRun:
+async def read_run(
+    run_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowRun:
     try:
-        return await get_run(db, run_id)
+        run = await get_run(db, run_id)
     except RunNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Run not found.") from exc
+
+    if run.tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
+    return run
 
 
 @app.post("/runs/{run_id}/approve", response_model=WorkflowRun)
 async def approve(
     run_id: str,
     request: ReviewDecisionRequest | None = Body(default=None),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowRun:
+    try:
+        run = await get_run(db, run_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+
+    if run.tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
     try:
         return await approve_run(db, run_id, comment=request.comment if request else None)
     except RunNotFoundError as exc:
@@ -122,8 +168,17 @@ async def approve(
 async def reject(
     run_id: str,
     request: ReviewDecisionRequest | None = Body(default=None),
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowRun:
+    try:
+        run = await get_run(db, run_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+
+    if run.tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
     try:
         return await reject_run(db, run_id, comment=request.comment if request else None)
     except RunNotFoundError as exc:
@@ -133,7 +188,10 @@ async def reject(
 
 
 @app.post("/evals/run", response_model=EvalSuiteRun)
-async def run_evals(db: AsyncSession = Depends(get_db)) -> EvalSuiteRun:
+async def run_evals(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> EvalSuiteRun:
     """Actually runs the real eval suite against the live investigator agent
     (3 real /investigate calls) and records the result. Not triggered
     automatically — only when a client explicitly calls this, since each
@@ -142,7 +200,10 @@ async def run_evals(db: AsyncSession = Depends(get_db)) -> EvalSuiteRun:
 
 
 @app.get("/evals/runs", response_model=list[EvalSuiteRun])
-async def read_eval_runs(db: AsyncSession = Depends(get_db)) -> list[EvalSuiteRun]:
+async def read_eval_runs(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[EvalSuiteRun]:
     return await list_eval_runs(db)
 
 

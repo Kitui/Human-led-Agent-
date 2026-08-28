@@ -99,3 +99,14 @@ class EvalSuiteRun(BaseModel):
     score: float
     threshold: float
     result: Literal["passed", "failed"]
+
+
+class AuthenticatedUser(BaseModel):
+    username: str
+    tenant_ids: list[str]
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    tenant_ids: list[str]

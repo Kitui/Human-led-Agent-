@@ -50,11 +50,12 @@ Activate your virtual environment, then install dependencies:
 pip install -r requirements.txt
 ```
 
-Create `.env` locally and add your API key and database URL:
+Create `.env` locally and add your API key, database URL, and a JWT signing secret:
 
 ```text
 OPENAI_API_KEY=your_key_here
 DATABASE_URL=postgresql+asyncpg://agent_lab:agent_lab@localhost:5544/agent_lab
+JWT_SECRET_KEY=any_long_random_string
 ```
 
 Start the API:
@@ -74,9 +75,27 @@ http://127.0.0.1:8000/docs     Swagger UI
 
 ### 1. Health check
 
-`GET /health`
+`GET /health` — no login required.
 
-### 2. Investigate
+### 2. Log in
+
+`POST /auth/login`
+
+```json
+{
+  "username": "red_user",
+  "password": "red-pass-123"
+}
+```
+
+Returns a `access_token` (JWT) and the tenants this account may act on
+(`tenant_ids`). Send it as `Authorization: Bearer <access_token>` on every
+request below. Three demo accounts are seeded automatically on first
+startup: `red_user` / `red-pass-123` (tenant_red only), `green_user` /
+`green-pass-123` (tenant_green only), and `admin_user` / `admin-pass-123`
+(both tenants).
+
+### 3. Investigate
 
 `POST /investigate`
 
@@ -87,9 +106,10 @@ http://127.0.0.1:8000/docs     Swagger UI
 }
 ```
 
-Copy the returned `run_id`.
+`tenant_id` must be one of the tenants your logged-in account is allowed to
+use, or the API returns `403`. Copy the returned `run_id`.
 
-### 3. Approve
+### 4. Approve
 
 `POST /runs/{run_id}/approve`
 
@@ -99,13 +119,13 @@ Or reject it with:
 
 `POST /runs/{run_id}/reject`
 
-### 4. Read current state
+### 5. Read current state
 
 `GET /runs/{run_id}`
 
-### 5. List runs
+### 6. List runs
 
-`GET /runs` (optional `status` / `tenant_id` query filters) — used by the dashboard UI's Runs, Approvals, and Dashboard pages.
+`GET /runs` (optional `status` / `tenant_id` query filters) — used by the dashboard UI's Runs, Approvals, and Dashboard pages. Only returns runs for tenants your account can access.
 
 ## CLI
 
@@ -117,4 +137,4 @@ python -m agent_lab.app
 
 ## Data storage
 
-Workflow runs, eval history, and user accounts are stored in a real PostgreSQL database (see `docker-compose.yml`, `agent_lab/db.py`, `agent_lab/db_models.py`), not in memory — restarting the API does not lose data. On first startup, 3 demo accounts are seeded into the `users` table (`red_user` / `green_user` / `admin_user`, see `agent_lab/db.py`), ready for the login/tenancy feature that will be built on top of them next.
+Workflow runs, eval history, and user accounts are stored in a real PostgreSQL database (see `docker-compose.yml`, `agent_lab/db.py`, `agent_lab/db_models.py`), not in memory — restarting the API does not lose data. On first startup, 3 demo accounts are seeded into the `users` table (`red_user` / `green_user` / `admin_user`, see `agent_lab/db.py`); log in with them via `POST /auth/login` (see API flow above).

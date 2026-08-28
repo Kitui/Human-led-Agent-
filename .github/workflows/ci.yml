@@ -31,6 +31,10 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+asyncpg://agent_lab:agent_lab@localhost:5432/agent_lab
+      # Only used to sign/verify tokens within this CI run itself -- not a
+      # real credential, so a plain committed value is fine here (unlike
+      # OPENAI_API_KEY below, which is a real secret).
+      JWT_SECRET_KEY: ci-test-secret-not-for-real-use
 
     steps:
       - name: Checkout repository
