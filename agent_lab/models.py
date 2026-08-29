@@ -80,7 +80,11 @@ class EvalCaseResult(BaseModel):
     """
 
     name: str
-    category: str
+    # Defaulted, not required: eval-suite runs persisted before categories
+    # were introduced don't have this field in their stored JSON, and a
+    # missing default would make GET /evals/runs 500 on that old history
+    # instead of just labeling it honestly as uncategorized.
+    category: str = "Uncategorized"
     tenant_id: str
     input: str
     expected_outcome: Literal["action_point", "guardrail_block", "invalid_tenant"] = "action_point"

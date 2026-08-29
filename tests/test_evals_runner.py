@@ -2,7 +2,32 @@ import json
 from datetime import datetime, timezone
 
 from agent_lab.evals_runner import _evaluate_action_point, _tool_result_from_run
-from agent_lab.models import ActionPoint, TraceEvent, WorkflowRun
+from agent_lab.models import ActionPoint, EvalSuiteRun, TraceEvent, WorkflowRun
+
+
+def test_eval_suite_run_tolerates_cases_persisted_before_category_existed():
+    """Regression test: eval-suite runs persisted before the `category` field
+    was added to EvalCaseResult have no `category` key in their stored JSON.
+    GET /evals/runs must still load that old history instead of 500ing."""
+    old_case = {
+        "name": "an old case",
+        "tenant_id": "tenant_red",
+        "input": "some issue",
+        "expected_outcome": "action_point",
+        "passed": True,
+    }
+    run = EvalSuiteRun.model_validate({
+        "run_id": "old-run",
+        "started_at": datetime.now(timezone.utc),
+        "duration_seconds": 1.0,
+        "cases": [old_case],
+        "passed_count": 1,
+        "total_count": 1,
+        "score": 100.0,
+        "threshold": 90.0,
+        "result": "passed",
+    })
+    assert run.cases[0].category == "Uncategorized"
 
 
 def _run(*, trace=None) -> WorkflowRun:

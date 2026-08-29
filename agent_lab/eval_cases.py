@@ -171,4 +171,4 @@ EVAL_CASES = [
 
 # Fifteen cases means the suite can tolerate at most one isolated miss while
 # still protecting against broader regressions.
-MINIMUM_SCORE = 90.0
+MINIMUM_SCORE = 98.0
