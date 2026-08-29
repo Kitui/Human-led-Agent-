@@ -1,5 +1,5 @@
 /* Human-Led Agent Lab — entry point: routing, nav, boot */
-import { qs, qsa, API_BASE, checkHealth } from "./shared.js";
+import { qs, qsa, checkHealth } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
 import { renderRunsPage } from "./runs.js";
 import { renderApprovalsPage } from "./approvals.js";
@@ -32,12 +32,13 @@ function navigateTo(page) {
 
 const VALID_PAGES = ["dashboard", "investigate", "runs", "approvals", "traces", "evals", "settings"];
 
+function currentPage() {
+  const page = (location.hash || "#investigate").slice(1);
+  return VALID_PAGES.includes(page) ? page : "investigate";
+}
+
 function initRouter() {
-  const go = () => {
-    let page = (location.hash || "#investigate").slice(1);
-    if (!VALID_PAGES.includes(page)) page = "investigate";
-    navigateTo(page);
-  };
+  const go = () => navigateTo(currentPage());
   window.addEventListener("hashchange", go);
   go();
 }
@@ -57,6 +58,7 @@ function initTenantSelect() {
     btn.addEventListener("click", () => {
       qs("#tenant-select-label").textContent = btn.dataset.tenant;
       wrap.classList.remove("open");
+      navigateTo(currentPage()); // re-render the visible page for the new tenant
     });
   });
   document.addEventListener("click", (e) => {
@@ -86,8 +88,6 @@ function initMisc() {
   qs("#collapse-btn").addEventListener("click", () => {
     qs("#sidebar").classList.toggle("collapsed");
   });
-
-  qs("#settings-api-base").textContent = API_BASE || `${location.origin} (same-origin)`;
 }
 
 /* ---------------- app start (post-login / restored session) ---------------- */
