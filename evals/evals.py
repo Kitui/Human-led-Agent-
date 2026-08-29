@@ -44,6 +44,11 @@ async def run_evals_async():
                 "Customer tool: "
                 f"{case.actual_tool_result} (expected {case.expected_tool_result or 'FOUND'})"
             )
+        elif case.tool_call_correct is False:
+            print(
+                "Customer tool: unexpected call "
+                f"(result {case.actual_tool_result or 'unknown'}; expected NO_CALL)"
+            )
         if case.error:
             print(f"Error: {case.error}")
 
