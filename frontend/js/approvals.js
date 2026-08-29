@@ -15,7 +15,7 @@
 import {
   qs, qsa, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge,
   AGENT_NAME, startOfDay, fmtDuration, deltaFromYesterdayHtml, api,
-  showBanner, upsertHistory, getAllKnownRuns,
+  showBanner, upsertHistory, getAllKnownRuns, deriveEvidence,
 } from "./shared.js";
 
 const approvalsPageState = {
@@ -45,33 +45,6 @@ function reviewTimeSeconds(run) {
   const decided = findTraceEvent(run, (l) => l === "Execution approved by human reviewer" || l === "Rejected by human reviewer");
   if (!generated || !decided) return null;
   return (new Date(decided.timestamp) - new Date(generated.timestamp)) / 1000;
-}
-
-function deriveEvidence(run) {
-  const bullets = [];
-  (run.trace || []).forEach((e) => {
-    if (e.kind !== "mcp" || !e.detail || !/result received/.test(e.label)) return;
-    const sourceLabel = e.label.replace(" result received", "");
-    try {
-      const parsed = JSON.parse(e.detail);
-      if (parsed.found && parsed.customer) {
-        const c = parsed.customer;
-        bullets.push(
-          `${sourceLabel}: ${c.name} — ${c.plan} plan, account ${c.account_status}, billing ${c.billing_status}, renewal ${c.renewal_status}` +
-          (c.renewal_value != null ? ` ($${Number(c.renewal_value).toLocaleString()})` : "")
-        );
-      } else if (parsed.created) {
-        bullets.push(`${sourceLabel}: task ${parsed.task_id} created for ${parsed.customer} (${parsed.team})`);
-      } else if (parsed.error) {
-        bullets.push(`${sourceLabel}: ${parsed.error}`);
-      } else {
-        bullets.push(`${sourceLabel}: ${e.detail.slice(0, 140)}`);
-      }
-    } catch (_) {
-      bullets.push(`${sourceLabel}: ${e.detail.slice(0, 140)}`);
-    }
-  });
-  return bullets;
 }
 
 function computeApprovalsStats(runs) {

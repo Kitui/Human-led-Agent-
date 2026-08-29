@@ -1,6 +1,7 @@
 /* Human-Led Agent Lab — entry point: routing, nav, boot */
 import { qs, qsa, checkHealth } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
+import { renderActionPointsPage } from "./action-points.js";
 import { renderRunsPage } from "./runs.js";
 import { renderApprovalsPage } from "./approvals.js";
 import { renderDashboardPage } from "./dashboard.js";
@@ -15,6 +16,7 @@ import {
 /* ---------------- routing / nav ---------------- */
 const PAGE_RENDERERS = {
   investigate: renderInvestigatePage,
+  "action-points": renderActionPointsPage,
   runs: renderRunsPage,
   approvals: renderApprovalsPage,
   dashboard: renderDashboardPage,
@@ -30,7 +32,7 @@ function navigateTo(page) {
   if (renderer) renderer();
 }
 
-const VALID_PAGES = ["dashboard", "investigate", "runs", "approvals", "traces", "evals", "settings"];
+const VALID_PAGES = ["dashboard", "investigate", "action-points", "runs", "approvals", "traces", "evals", "settings"];
 
 function currentPage() {
   const page = (location.hash || "#investigate").slice(1);
