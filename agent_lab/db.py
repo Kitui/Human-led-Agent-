@@ -6,7 +6,8 @@ import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from .db_models import Base, TenantORM, UserORM
+from .db_models import Base, TenantORM, TenantSettingsORM, UserORM
+from .tenant_settings import DEFAULT_SETTINGS
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -64,4 +65,21 @@ async def seed_default_tenants() -> None:
         now = datetime.now(timezone.utc)
         for slug, environment in DEFAULT_TENANTS:
             session.add(TenantORM(slug=slug, environment=environment, is_active=True, created_at=now))
+        await session.commit()
+
+
+async def seed_default_tenant_settings() -> None:
+    """Eagerly seeds a settings row (defaults matching today's hardcoded
+    behavior) for each of DEFAULT_TENANTS, right alongside
+    seed_default_tenants() -- avoids ever needing a lazy check-then-insert
+    for tenants that exist from process start. Tenants created later via
+    POST /tenants get their row lazily instead, via
+    tenant_settings.get_or_create_settings()."""
+
+    async with async_session_maker() as session:
+        existing = await session.execute(select(TenantSettingsORM.tenant_slug))
+        if existing.first() is not None:
+            return
+        for slug, _environment in DEFAULT_TENANTS:
+            session.add(TenantSettingsORM(tenant_slug=slug, **DEFAULT_SETTINGS))
         await session.commit()

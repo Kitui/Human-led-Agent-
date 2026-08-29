@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 load_dotenv()
 
 from agent_lab.api import app
-from agent_lab.db import engine, get_db, seed_default_tenants, seed_demo_users
+from agent_lab.db import engine, get_db, seed_default_tenant_settings, seed_default_tenants, seed_demo_users
 from agent_lab.db_models import Base
 
 
@@ -32,6 +32,7 @@ async def _schema():
     # already exist (e.g. a local dev database that's already been seeded).
     await seed_demo_users()
     await seed_default_tenants()
+    await seed_default_tenant_settings()
 
 
 @pytest_asyncio.fixture(autouse=True)

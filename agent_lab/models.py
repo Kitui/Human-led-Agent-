@@ -117,3 +117,18 @@ class Tenant(BaseModel):
     environment: Literal["Production", "Staging", "Sandbox"]
     is_active: bool
     created_at: datetime
+
+
+class TenantSettings(BaseModel):
+    tenant_slug: str
+    environment_name: str = ""
+    log_level: Literal["Debug", "Info", "Warning", "Error"] = "Info"
+    default_language: str = "English (US)"
+    default_timezone: str = "UTC"
+    max_concurrent_runs: int = 20
+    max_steps: int = 5
+    retry_limit: int = 3
+    default_model: str | None = None
+    system_prompt_override: str | None = None
+    prompt_version: int = 1
+    auto_update_prompt: bool = True
