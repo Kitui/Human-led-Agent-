@@ -21,17 +21,19 @@ Human approve / reject
        ↓
 Execution Agent → create_task
        ↓
+GitHub Issues API
+       ↓
 PostgreSQL idempotency record
        ↓
 Retry-safe result
 ```
 
-The CLI still works through `agent_lab/app.py`, but both the CLI and FastAPI now call the same reusable workflow functions.
+The CLI still works through `agent_lab/app.py`, but both the CLI and FastAPI call the same reusable workflow functions.
 
 ## Project layout
 
 ```text
-agent_lab/       Application package (agent, api, workflow, db, db_models, guardrails, tools, ...)
+agent_lab/       Application package (agent, api, workflow, DB, MCP, GitHub task adapter, ...)
 frontend/        Static dashboard UI (plain HTML/CSS/JS), served by the API
 evals/           AI quality-gate eval suite (run in CI)
 scripts/         Standalone manual smoke-test scripts (MCP)
@@ -41,26 +43,30 @@ docker-compose.yml   Local PostgreSQL (pgvector/pgvector image)
 
 ## Run locally
 
-Start PostgreSQL (required before anything else — the app and the test
-suite both need it):
+Start PostgreSQL:
 
 ```powershell
 docker compose up -d
 ```
 
-Activate your virtual environment, then install dependencies:
+Activate your virtual environment and install dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-Create `.env` locally and add your API key, database URL, and a JWT signing secret:
+Create `.env` locally:
 
 ```text
 OPENAI_API_KEY=your_key_here
 DATABASE_URL=postgresql+asyncpg://agent_lab:agent_lab@localhost:5544/agent_lab
 JWT_SECRET_KEY=any_long_random_string
+TASK_GITHUB_TOKEN=your_fine_grained_github_token
+TASK_GITHUB_REPOSITORY=owner/repository
+TASK_GITHUB_API_URL=https://api.github.com
 ```
+
+`TASK_GITHUB_TOKEN` should be a fine-grained GitHub token with Issues read/write access to the repository configured in `TASK_GITHUB_REPOSITORY`. Never commit the real token.
 
 Start the API:
 
@@ -68,7 +74,7 @@ Start the API:
 uvicorn agent_lab.api:app --reload
 ```
 
-The API also serves the dashboard UI (from `frontend/`) directly, so once it's running:
+The API also serves the dashboard UI:
 
 ```text
 http://127.0.0.1:8000/         Dashboard UI
@@ -92,12 +98,7 @@ http://127.0.0.1:8000/docs     Swagger UI
 }
 ```
 
-Returns a `access_token` (JWT) and the tenants this account may act on
-(`tenant_ids`). Send it as `Authorization: Bearer <access_token>` on every
-request below. Three demo accounts are seeded automatically on first
-startup: `red_user` / `red-pass-123` (tenant_red only), `green_user` /
-`green-pass-123` (tenant_green only), and `admin_user` / `admin-pass-123`
-(both tenants).
+Returns an `access_token` (JWT) and the tenants this account may act on (`tenant_ids`). Send it as `Authorization: Bearer <access_token>` on authenticated requests. Three demo accounts are seeded automatically on first startup: `red_user` / `red-pass-123` (tenant_red only), `green_user` / `green-pass-123` (tenant_green only), and `admin_user` / `admin-pass-123` (both tenants).
 
 ### 3. Investigate
 
@@ -110,16 +111,15 @@ startup: `red_user` / `red-pass-123` (tenant_red only), `green_user` /
 }
 ```
 
-`tenant_id` must be one of the tenants your logged-in account is allowed to
-use, or the API returns `403`. Copy the returned `run_id`.
+`tenant_id` must be one of the tenants your logged-in account is allowed to use, or the API returns `403`. Copy the returned `run_id`.
 
 ### 4. Approve
 
 `POST /runs/{run_id}/approve`
 
-This executes only the previously proposed Action Point.
+Approval executes only the previously proposed Action Point. The execution agent calls `create_task`, which creates a real GitHub Issue in `TASK_GITHUB_REPOSITORY`.
 
-Or reject it with:
+Reject with:
 
 `POST /runs/{run_id}/reject`
 
@@ -131,9 +131,19 @@ Or reject it with:
 
 `GET /runs` (optional `status` / `tenant_id` query filters) — used by the dashboard UI's Runs, Approvals, and Dashboard pages. Only returns runs for tenants your account can access.
 
-## CLI
+## GitHub task execution and idempotency
 
-The old terminal experience remains available:
+Every approved write receives a deterministic workflow idempotency key. `create_task` first obtains a PostgreSQL advisory lock for that key and checks the local `executed_actions` table. If no local record exists, the GitHub adapter checks the target repository for an issue carrying the same hidden marker:
+
+```text
+<!-- human-led-agent-idempotency:<key> -->
+```
+
+Only when neither PostgreSQL nor GitHub already contains that action does the adapter create a new issue. This protects against ordinary retries, concurrent same-key attempts, process restarts, and the case where GitHub created the issue but the HTTP response was lost before the application could persist the result.
+
+The stored execution result includes the GitHub provider, repository, issue number, issue URL, task ID (`GH-<issue number>`), customer, team, priority, and idempotency key.
+
+## CLI
 
 ```powershell
 python -m agent_lab.app
@@ -141,6 +151,4 @@ python -m agent_lab.app
 
 ## Data storage
 
-Workflow runs, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL (see `docker-compose.yml`, `agent_lab/db.py`, `agent_lab/db_models.py`). Successful `create_task` results are committed to `executed_actions` before returning to the agent, so a retry after a lost response — or after an application restart — reuses the saved result instead of creating the action again.
-
-On first startup, 3 demo accounts are seeded into the `users` table (`red_user` / `green_user` / `admin_user`, see `agent_lab/db.py`); log in with them via `POST /auth/login` (see API flow above).
+Workflow runs, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL. `executed_actions` stores the request and the real GitHub issue result, while the same idempotency marker is also embedded in the GitHub issue for external reconciliation.

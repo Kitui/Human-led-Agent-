@@ -1,13 +1,13 @@
-import random
-import uuid
 from datetime import datetime, timezone
 
 from agents import function_tool
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import async_session_maker
 from .db_models import ExecutedActionORM
+from .github_tasks import GitHubTaskClient
 
 
 async def _get_or_create_task(
@@ -18,14 +18,24 @@ async def _get_or_create_task(
     team: str,
     description: str,
     priority: str,
+    task_client: GitHubTaskClient,
 ) -> tuple[dict, bool]:
-    """Return the durable result for an idempotency key.
+    """Return the durable external task result for an idempotency key.
 
-    The boolean is True only when this call created the task record. A retry
-    gets the previously committed result and must not perform the write again.
-    The primary-key constraint also protects against two workers racing on the
-    same key: the loser rolls back its insert and reads the winner's result.
+    A PostgreSQL advisory lock serializes concurrent attempts using the same
+    key before any GitHub write happens. PostgreSQL remains the local source
+    of truth; GitHub carries the same key in the issue body so a retry can
+    reconcile an external success that happened just before a lost response
+    or process crash.
     """
+
+    # Serialize this specific action across PostgreSQL connections/workers.
+    # The lock is transaction-scoped and releases automatically on commit,
+    # rollback, or connection loss.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:idempotency_key))"),
+        {"idempotency_key": idempotency_key},
+    )
 
     existing = await db.get(ExecutedActionORM, idempotency_key)
     if existing is not None:
@@ -36,15 +46,16 @@ async def _get_or_create_task(
         "team": team,
         "description": description,
         "priority": priority,
+        "provider": "github",
     }
-    result = {
-        "created": True,
-        "task_id": f"TASK-{uuid.uuid4().hex[:8].upper()}",
-        "customer": customer_name,
-        "team": team,
-        "priority": priority,
-        "idempotency_key": idempotency_key,
-    }
+
+    result, created_now = await task_client.create_or_get_issue(
+        idempotency_key=idempotency_key,
+        customer_name=customer_name,
+        team=team,
+        description=description,
+        priority=priority,
+    )
 
     db.add(
         ExecutedActionORM(
@@ -57,20 +68,20 @@ async def _get_or_create_task(
     )
 
     try:
-        # Commit the successful write BEFORE returning to the agent. If the
-        # response is lost after this point, a retry can recover this result
-        # from PostgreSQL instead of creating a duplicate task.
+        # Persist the external result before returning it to the agent. If the
+        # process fails before this commit, the next attempt will reconcile
+        # against GitHub using the embedded idempotency marker.
         await db.commit()
     except IntegrityError:
-        # Another worker may have committed the same key between our initial
-        # lookup and insert. Treat that exactly like an ordinary retry.
+        # Defensive fallback. The advisory lock should already serialize
+        # same-key writes, but the primary key remains the final DB boundary.
         await db.rollback()
         existing = await db.get(ExecutedActionORM, idempotency_key)
         if existing is None:
             raise
         return dict(existing.result), False
 
-    return result, True
+    return result, created_now
 
 
 @function_tool(failure_error_function=None)
@@ -81,7 +92,9 @@ async def create_task(
     description: str,
     priority: str,
 ) -> dict:
-    """Create a task exactly once for the supplied idempotency key."""
+    """Create an approved task as a real GitHub Issue exactly once."""
+
+    task_client = GitHubTaskClient.from_env()
 
     async with async_session_maker() as db:
         result, created_now = await _get_or_create_task(
@@ -91,24 +104,21 @@ async def create_task(
             team=team,
             description=description,
             priority=priority,
+            task_client=task_client,
         )
 
     if not created_now:
         print("\n[IDEMPOTENCY CHECK]")
-        print(f"Action already completed as {result['task_id']}.")
+        print(f"Action already exists as {result['task_id']}.")
+        print(f"Issue: {result['issue_url']}")
         return result
 
     print("\n[WRITE TOOL EXECUTED]")
     print(f"Task ID: {result['task_id']}")
+    print(f"GitHub Issue: {result['issue_url']}")
     print(f"Customer: {customer_name}")
     print(f"Team: {team}")
     print(f"Priority: {priority}")
     print(f"Description: {description}")
-
-    # Simulate response loss AFTER the durable record has committed. The
-    # retry will read that record and return the same task instead of writing
-    # again, even if this process has restarted in between attempts.
-    if random.random() < 0.5:
-        raise RuntimeError("Task created, but response was lost")
 
     return result
