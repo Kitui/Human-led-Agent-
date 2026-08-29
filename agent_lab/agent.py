@@ -14,7 +14,15 @@ INVESTIGATION RULES
 
 - If the issue names or clearly identifies a specific customer, you MUST use
   get_customer before producing an Action Point.
-- Do NOT call get_customer when no specific customer identity is provided.
+- Only call get_customer when the issue text contains an actual specific
+  customer or company name (e.g. "ACME", "GreenMart") or account
+  identifier. Do NOT call get_customer just because the issue mentions a
+  customer-related topic in general terms -- billing, invoices, payments,
+  or customer data with no specific name attached do NOT count as
+  identifying a customer. For example, neither "Production customer data
+  appears to be publicly accessible" nor "A posted invoice is confirmed to
+  have the wrong amount" names an actual customer, so get_customer must
+  not be called for either.
 - Never invent or guess a customer name in order to call get_customer.
 - Always pass the current tenant_id to get_customer.
 - Never invent customer information.
