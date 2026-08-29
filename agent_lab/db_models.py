@@ -32,6 +32,23 @@ class WorkflowRunORM(Base):
     metrics: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
+class ExecutedActionORM(Base):
+    """Durable idempotency record for write-tool execution.
+
+    The idempotency key is the primary key, so only the first successful
+    execution can create a record. Retries and later process instances read
+    the saved result instead of repeating the external action.
+    """
+
+    __tablename__ = "executed_actions"
+
+    idempotency_key: Mapped[str] = mapped_column(String, primary_key=True)
+    tool_name: Mapped[str] = mapped_column(String, index=True)
+    request: Mapped[dict] = mapped_column(JSONB)
+    result: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class EvalSuiteRunORM(Base):
     __tablename__ = "eval_suite_runs"
 
