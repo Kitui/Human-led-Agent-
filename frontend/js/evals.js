@@ -5,16 +5,18 @@
  * agent_lab/evals_runner.py) — nothing is simulated. The page starts empty
  * until you click "Run Evals"; run history is persisted in PostgreSQL.
  *
- * Two different, unrelated things are both called "category" in this file
- * -- worth keeping straight:
+ * Don't confuse the two different "category"-shaped things here:
  *  - Each eval case has a real topic label (EvalCaseResult.category, e.g.
  *    "Security Guardrails", "Tenant Controls" -- see eval_cases.py). The
  *    "Number of Test Cases" stat counts how many distinct labels appear in
  *    the latest run.
- *  - The "Pass / Fail by Category" chart below checks three specific,
- *    hardcoded judgment dimensions every case is scored on regardless of
- *    its topic label: did the agent pick the right priority, the right
- *    approval decision, and (where applicable) call its tool correctly.
+ *  - The "Pass / Fail by Judgment Check" chart below always has exactly
+ *    three rows -- it checks three specific, hardcoded judgment skills
+ *    every case is scored on regardless of its topic label: did the agent
+ *    pick the right priority, the right approval decision, and (where
+ *    applicable) call its tool correctly. It's deliberately named
+ *    "Judgment Check" rather than "Category" to avoid exactly the
+ *    confusion the old shared name caused.
  */
 import {
   qs, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
