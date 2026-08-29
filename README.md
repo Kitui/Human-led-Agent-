@@ -1,6 +1,6 @@
 # Human-Led Agent Lab — FastAPI Edition
 
-A small human-led AI orchestration lab with structured Action Points, guardrails, MCP tool access, human approval, retries, idempotency, tracing, evals, CI, and a FastAPI interface.
+A small human-led AI orchestration lab with structured Action Points, guardrails, MCP tool access, human approval, retries, durable idempotency, tracing, evals, CI, and a FastAPI interface.
 
 ## Architecture
 
@@ -9,9 +9,11 @@ Client / Swagger UI
        ↓
      FastAPI
        ↓
-   workflow.py  ──────────→  PostgreSQL (workflow_runs, eval_suite_runs, users)
-       ↓
-Guardrail → Investigator Agent → MCP → get_customer
+   workflow.py  ──────────→  PostgreSQL
+       ↓                    (runs, evals, users,
+Guardrail                    tenants, settings,
+       ↓                     executed actions)
+Investigator Agent → MCP → get_customer
        ↓
 Structured Action Point
        ↓
@@ -19,7 +21,9 @@ Human approve / reject
        ↓
 Execution Agent → create_task
        ↓
-Retry + idempotency
+PostgreSQL idempotency record
+       ↓
+Retry-safe result
 ```
 
 The CLI still works through `agent_lab/app.py`, but both the CLI and FastAPI now call the same reusable workflow functions.
@@ -137,4 +141,6 @@ python -m agent_lab.app
 
 ## Data storage
 
-Workflow runs, eval history, and user accounts are stored in a real PostgreSQL database (see `docker-compose.yml`, `agent_lab/db.py`, `agent_lab/db_models.py`), not in memory — restarting the API does not lose data. On first startup, 3 demo accounts are seeded into the `users` table (`red_user` / `green_user` / `admin_user`, see `agent_lab/db.py`); log in with them via `POST /auth/login` (see API flow above).
+Workflow runs, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL (see `docker-compose.yml`, `agent_lab/db.py`, `agent_lab/db_models.py`). Successful `create_task` results are committed to `executed_actions` before returning to the agent, so a retry after a lost response — or after an application restart — reuses the saved result instead of creating the action again.
+
+On first startup, 3 demo accounts are seeded into the `users` table (`red_user` / `green_user` / `admin_user`, see `agent_lab/db.py`); log in with them via `POST /auth/login` (see API flow above).
