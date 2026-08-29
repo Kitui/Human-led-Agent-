@@ -54,3 +54,7 @@ async def set_tenant_active(db: AsyncSession, slug: str, is_active: bool) -> Ten
 async def is_valid_active_tenant(db: AsyncSession, slug: str) -> bool:
     orm_row = await db.get(TenantORM, slug)
     return orm_row is not None and orm_row.is_active
+
+
+async def tenant_exists(db: AsyncSession, slug: str) -> bool:
+    return await db.get(TenantORM, slug) is not None

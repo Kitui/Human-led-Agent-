@@ -23,6 +23,7 @@ from .tenants import (
     is_valid_active_tenant,
     list_tenants,
     set_tenant_active,
+    tenant_exists,
 )
 from .workflow import (
     GuardrailBlockedError,
@@ -247,6 +248,12 @@ async def read_eval_runs(
 
 @app.get("/tenants", response_model=list[Tenant])
 async def read_tenants(
+    # Deliberately not scoped to current_user.tenant_ids: unlike GET /runs,
+    # this lab has no role system to grant a user access to a tenant they
+    # didn't create, so scoping this list would make a newly-created tenant
+    # invisible to its own creator. Listing/creating tenants stays open to
+    # any logged-in user; PATCHing an existing tenant's active state or
+    # settings is scoped below -- that's the actual boundary that matters.
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[Tenant]:
@@ -256,9 +263,6 @@ async def read_tenants(
 @app.post("/tenants", response_model=Tenant)
 async def create_tenant_route(
     request: TenantCreateRequest,
-    # No admin/role check: this lab has no role system yet, so any logged-in
-    # user can create or (de)activate tenants. Deliberate, known scope
-    # limitation for this phase, not an oversight.
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
@@ -275,6 +279,14 @@ async def update_tenant_route(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
+    # Existence checked before authorization (matches GET /runs/{id} etc.):
+    # a nonexistent tenant is a 404 even for a caller who'd also be
+    # unauthorized for it, rather than always masking it as a 403.
+    if not await tenant_exists(db, slug):
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+    if slug not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
     try:
         return await set_tenant_active(db, slug, request.is_active)
     except TenantNotFoundError as exc:
@@ -287,6 +299,11 @@ async def read_tenant_settings(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettings:
+    if not await tenant_exists(db, slug):
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+    if slug not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
     try:
         return await get_or_create_settings(db, slug)
     except TenantNotFoundError as exc:
@@ -300,6 +317,11 @@ async def update_tenant_settings_route(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettings:
+    if not await tenant_exists(db, slug):
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+    if slug not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
     try:
         return await update_settings(db, slug, **request.model_dump(exclude_unset=True))
     except TenantNotFoundError as exc:

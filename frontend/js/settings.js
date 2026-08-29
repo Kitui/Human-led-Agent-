@@ -8,6 +8,7 @@
  * mockup exactly but have no backend yet, so their controls are disabled
  * and empty rather than showing fabricated values. */
 import { qs, qsa, escapeHtml, api, showBanner } from "./shared.js";
+import { currentTenantIds } from "./auth.js";
 
 function initSettingsTabs() {
   // Scoped to the settings <section>, not "[data-page=settings]" alone --
@@ -29,14 +30,21 @@ function renderTenantsTable(tenants) {
     body.innerHTML = `<tr><td colspan="4"><p class="empty-note">No tenants yet.</p></td></tr>`;
     return;
   }
-  body.innerHTML = tenants.map((t) => `
+  const myTenants = currentTenantIds();
+  body.innerHTML = tenants.map((t) => {
+    const hasAccess = myTenants.includes(t.slug);
+    const btnAttrs = hasAccess
+      ? `data-toggle-tenant="${escapeHtml(t.slug)}" data-next-active="${!t.is_active}"`
+      : `disabled title="You don't have access to manage this tenant."`;
+    return `
     <tr data-tenant-row="${escapeHtml(t.slug)}">
       <td>${escapeHtml(t.slug)}</td>
       <td>${escapeHtml(t.environment)}</td>
       <td>${t.is_active ? `<span class="health-badge healthy"><span class="dot"></span>Active</span>` : `<span class="health-badge down"><span class="dot"></span>Inactive</span>`}</td>
-      <td><button class="btn btn-outline" data-toggle-tenant="${escapeHtml(t.slug)}" data-next-active="${!t.is_active}">${t.is_active ? "Deactivate" : "Activate"}</button></td>
+      <td><button class="btn btn-outline" ${btnAttrs}>${t.is_active ? "Deactivate" : "Activate"}</button></td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 
   qsa("[data-toggle-tenant]", body).forEach((btn) => {
     btn.addEventListener("click", async () => {

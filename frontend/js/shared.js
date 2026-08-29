@@ -179,10 +179,16 @@ let authSession = readStoredSession();
 
 export function getAuthSession() { return authSession; }
 export function setAuthSession(session) {
+  // Every successful login goes through here -- clearing the local run
+  // cache at this single choke point closes the leak regardless of how the
+  // previous session ended (explicit logout, token expiry, or the browser
+  // just being closed without logging out).
+  clearHistory();
   authSession = session;
   try { sessionStorage.setItem(AUTH_KEY, JSON.stringify(session)); } catch (_) { /* ignore quota errors */ }
 }
 export function clearAuthSession() {
+  clearHistory();
   authSession = null;
   try { sessionStorage.removeItem(AUTH_KEY); } catch (_) { /* ignore */ }
 }
@@ -289,11 +295,14 @@ export function showConfirmModal(message, opts) {
 }
 
 /* ---------------- local run history (client-side cache) ----------------
- * The backend does not yet expose a "list all runs" endpoint, so Recent
- * Runs / Runs / Approvals / Dashboard are populated from a local cache of
- * runs this browser has seen, persisted to localStorage. If a GET /runs
- * endpoint becomes available (see backend proposal), it is preferred and
- * used to refresh this cache automatically.
+ * GET /runs is real and PostgreSQL-backed, so this cache is no longer the
+ * source of truth -- it exists only so pages that call upsertHistory()
+ * directly for optimistic updates (e.g. investigate.js, right after
+ * submitting) have somewhere to read that back from before the next full
+ * refetch. getAllKnownRuns() always merges the real server response in
+ * first. Cleared on every login/logout (see setAuthSession/clearAuthSession
+ * above) so one user's cached runs can never leak into another user's
+ * session in the same browser.
  */
 export function loadHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
@@ -301,6 +310,9 @@ export function loadHistory() {
 }
 export function saveHistory(list) {
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (_) { /* ignore quota errors */ }
+}
+export function clearHistory() {
+  saveHistory([]);
 }
 export function upsertHistory(run) {
   const list = loadHistory();
