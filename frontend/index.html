@@ -467,36 +467,16 @@
         </div>
 
         <div class="settings-tabs">
-          <button class="settings-tab-btn active" data-tab="general">General</button>
-          <button class="settings-tab-btn" data-tab="model">Model &amp; Prompt</button>
-          <button class="settings-tab-btn" data-tab="approval">Approval Policy</button>
-          <button class="settings-tab-btn" data-tab="integrations">Integrations</button>
-          <button class="settings-tab-btn" data-tab="observability">Observability</button>
-          <button class="settings-tab-btn" data-tab="security">Security</button>
+          <button class="settings-tab-btn active" data-tab="general" data-target="settings-section-general">General</button>
+          <button class="settings-tab-btn" data-tab="model" data-target="settings-section-model">Model &amp; Prompt</button>
+          <button class="settings-tab-btn" data-tab="approval" data-target="settings-section-approval">Approval Policy</button>
+          <button class="settings-tab-btn" data-tab="integrations" data-target="settings-section-integrations">Integrations</button>
+          <button class="settings-tab-btn" data-tab="observability" data-target="settings-section-observability">Observability</button>
+          <button class="settings-tab-btn" data-tab="security" data-target="settings-section-security">Security</button>
         </div>
 
-        <div class="settings-tab-panel active" data-tab-panel="general">
-          <div class="card">
-            <div class="field-row"><span class="label">Logged in as</span><span class="value" id="settings-username"></span></div>
-            <div class="field-row"><span class="label">API base URL</span><span class="value" id="settings-api-base"></span></div>
-            <div class="field-row"><span class="label">Valid tenants</span><span class="value" id="settings-valid-tenants"></span></div>
-            <div class="field-row"><span class="label">Run storage</span><span class="value">In-memory (demo). Recent Runs / Approvals are also cached locally in this browser.</span></div>
-          </div>
-
-          <div class="card">
-            <div class="card-head">
-              <h2>Tenant Management</h2>
-              <button class="btn btn-primary" id="add-tenant-btn">+ Add Tenant</button>
-            </div>
-            <div class="table-scroll">
-              <table>
-                <thead><tr><th>Tenant</th><th>Environment</th><th>Status</th><th>Action</th></tr></thead>
-                <tbody id="tenants-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="card" id="settings-general-form-card">
+        <div class="settings-row settings-row-2col">
+          <div class="card" id="settings-section-general">
             <div class="card-head"><h2>General Settings</h2></div>
             <p class="settings-tenant-indicator">Editing settings for <strong id="settings-general-tenant-name"></strong></p>
             <form class="settings-form" id="settings-general-form" novalidate>
@@ -539,10 +519,19 @@
               <div class="settings-save-row"><button type="submit" class="btn btn-primary" id="settings-general-save-btn">Save Changes</button></div>
             </form>
           </div>
+
+          <div class="card" id="settings-section-environment">
+            <div class="card-head"><h2>Environment Status</h2></div>
+            <p class="env-status-banner" id="env-status-banner"><span class="dot"></span><span id="env-status-banner-text"></span></p>
+            <div class="env-status-rows" id="env-status-rows"></div>
+            <div class="field-row"><span class="label">Environment</span><span class="value" id="env-status-environment"></span></div>
+            <div class="field-row"><span class="label">Region</span><span class="value muted">Not tracked</span></div>
+            <div class="field-row"><span class="label">Last Updated</span><span class="value muted">Not tracked yet</span></div>
+          </div>
         </div>
 
-        <div class="settings-tab-panel" data-tab-panel="model">
-          <div class="card" id="settings-model-form-card">
+        <div class="settings-row settings-row-3col">
+          <div class="card" id="settings-section-model">
             <div class="card-head"><h2>Model &amp; Prompt</h2></div>
             <p class="settings-tenant-indicator">Editing settings for <strong id="settings-model-tenant-name"></strong></p>
             <form class="settings-form" id="settings-model-form" novalidate>
@@ -573,18 +562,72 @@
               <div class="settings-save-row"><button type="submit" class="btn btn-primary" id="settings-model-save-btn">Save Changes</button></div>
             </form>
           </div>
+
+          <div class="card" id="settings-section-approval">
+            <div class="card-head"><h2>Approval Policy</h2><span class="coming-soon-badge">Coming soon</span></div>
+            <p class="card-sub">Control when human approval is required.</p>
+            <div class="settings-field-grid">
+              <div class="settings-field field-full">
+                <div class="toggle-row">
+                  <label class="toggle-switch"><input type="checkbox" disabled /><span class="toggle-track"><span class="toggle-knob"></span></span></label>
+                  <span class="toggle-row-label">Require Approval for Write Actions</span>
+                </div>
+              </div>
+              <div class="settings-field field-full">
+                <div class="toggle-row">
+                  <label class="toggle-switch"><input type="checkbox" disabled /><span class="toggle-track"><span class="toggle-knob"></span></span></label>
+                  <span class="toggle-row-label">Require Approval for High-Risk Tools</span>
+                </div>
+              </div>
+              <div class="settings-field">
+                <label class="field-label">Approval Timeout (hours)</label>
+                <input type="number" disabled placeholder="Not configured yet" />
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="settings-section-integrations">
+            <div class="card-head"><h2>Integrations</h2><span class="coming-soon-badge">Coming soon</span></div>
+            <p class="card-sub">Manage external services and endpoints.</p>
+            <div class="field-row"><span class="label">MCP Server Endpoint</span><span class="value muted">Not configured yet</span><span class="health-badge unmonitored"><span class="dot"></span>Not monitored</span></div>
+            <div class="field-row"><span class="label">Guardrails Service</span><span class="value muted">Not configured yet</span><span class="health-badge unmonitored"><span class="dot"></span>Not monitored</span></div>
+            <div class="field-row"><span class="label">Evals Service</span><span class="value muted">Not configured yet</span><span class="health-badge unmonitored"><span class="dot"></span>Not monitored</span></div>
+          </div>
         </div>
-        <div class="settings-tab-panel" data-tab-panel="approval">
-          <div class="card"><p class="empty-note">Coming soon — Approval Policy settings will be configurable per tenant in a future phase.</p></div>
-        </div>
-        <div class="settings-tab-panel" data-tab-panel="integrations">
-          <div class="card"><p class="empty-note">Coming soon — Integrations settings will be configurable per tenant in a future phase.</p></div>
-        </div>
-        <div class="settings-tab-panel" data-tab-panel="observability">
-          <div class="card"><p class="empty-note">Coming soon — Observability settings will be configurable per tenant in a future phase.</p></div>
-        </div>
-        <div class="settings-tab-panel" data-tab-panel="security">
-          <div class="card"><p class="empty-note">Coming soon. Security is not planned as a real feature in this lab.</p></div>
+
+        <div class="settings-row settings-row-3col">
+          <div class="card" id="settings-section-observability">
+            <div class="card-head"><h2>Observability</h2><span class="coming-soon-badge">Coming soon</span></div>
+            <p class="card-sub">Configure tracing, logging, and evaluation settings.</p>
+            <div class="settings-field-grid">
+              <div class="settings-field"><label class="field-label">Trace Retention (days)</label><input type="number" disabled placeholder="Not configured yet" /></div>
+              <div class="settings-field"><label class="field-label">Eval Quality Threshold</label><input type="number" disabled placeholder="Not configured yet" /></div>
+              <div class="settings-field"><label class="field-label">Log Retention (days)</label><input type="number" disabled placeholder="Not configured yet" /></div>
+              <div class="settings-field"><label class="field-label">Sampling Rate</label><select disabled><option>Not configured yet</option></select></div>
+            </div>
+          </div>
+
+          <div class="card" id="settings-section-security">
+            <div class="card-head"><h2>Security</h2><span class="coming-soon-badge">Coming soon</span></div>
+            <p class="card-sub">Manage security controls and access.</p>
+            <div class="field-row"><span class="label">SSO / SAML</span><span class="value muted">Not available</span></div>
+            <div class="field-row"><span class="label">IP Allowlist</span><span class="value muted">Not available</span></div>
+            <div class="settings-field"><label class="field-label">API Key Rotation (days)</label><input type="number" disabled placeholder="Not configured yet" /></div>
+            <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" disabled /><span class="toggle-track"><span class="toggle-knob"></span></span></label><span class="toggle-row-label">MFA for All Users</span></div>
+          </div>
+
+          <div class="card" id="settings-section-tenants">
+            <div class="card-head">
+              <h2>Tenant Management</h2>
+              <button class="btn btn-primary" id="add-tenant-btn">+ Add Tenant</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Tenant</th><th>Environment</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody id="tenants-table-body"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 

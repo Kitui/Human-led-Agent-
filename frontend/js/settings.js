@@ -1,15 +1,13 @@
-/* Human-Led Agent Lab — Settings page: identity, tab switching, Tenant
- * Management (list / create / activate / deactivate), and per-tenant
- * General Settings + Model & Prompt. Approval Policy / Integrations /
- * Observability are still planned for later phases; Security is a
- * permanent placeholder, no real feature planned. */
-import { qs, qsa, escapeHtml, api, getAuthSession, showBanner } from "./shared.js";
-
-function updateSettingsIdentity() {
-  const session = getAuthSession();
-  qs("#settings-username").textContent = session ? session.username : "—";
-  qs("#settings-valid-tenants").textContent = session ? session.tenantIds.join(", ") : "—";
-}
+/* Human-Led Agent Lab — Settings page. This is one continuous scrollable
+ * page (matching the product mockup) rather than separate hidden panels;
+ * the tab bar just smooth-scrolls to a section and highlights the button
+ * for whichever section you clicked. Real, tenant-scoped sections: General
+ * Settings, Model & Prompt, Tenant Management, Environment Status (API
+ * health only — see loadAndRenderEnvironmentStatus). Approval Policy /
+ * Integrations / Observability / Security are laid out to match the
+ * mockup exactly but have no backend yet, so their controls are disabled
+ * and empty rather than showing fabricated values. */
+import { qs, qsa, escapeHtml, api, showBanner } from "./shared.js";
 
 function initSettingsTabs() {
   // Scoped to the settings <section>, not "[data-page=settings]" alone --
@@ -20,7 +18,7 @@ function initSettingsTabs() {
   qsa(".settings-tab-btn", panel).forEach((btn) => {
     btn.addEventListener("click", () => {
       qsa(".settings-tab-btn", panel).forEach((b) => b.classList.toggle("active", b === btn));
-      qsa(".settings-tab-panel", panel).forEach((p) => p.classList.toggle("active", p.dataset.tabPanel === btn.dataset.tab));
+      qs(`#${btn.dataset.target}`).scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 }
@@ -57,7 +55,44 @@ function renderTenantsTable(tenants) {
 }
 
 async function loadAndRenderTenants() {
-  renderTenantsTable(await api("/tenants"));
+  const tenants = await api("/tenants");
+  renderTenantsTable(tenants);
+  return tenants;
+}
+
+/* ---------------- Environment Status ----------------
+ * Only "API" is a real, live-checked signal (the same /health poll used
+ * for the topbar badge). MCP Server / Guardrails / Evals have no health
+ * check anywhere in this codebase, so they're shown as "Not monitored"
+ * rather than a fabricated "Healthy" -- same honesty rule already used
+ * for the Dashboard's System Health card (see dashboard.js).
+ */
+async function loadAndRenderEnvironmentStatus(tenants) {
+  let apiHealthy = false;
+  try {
+    await api("/health");
+    apiHealthy = true;
+  } catch (_) {
+    apiHealthy = false;
+  }
+
+  const rows = [
+    { label: "API", badge: apiHealthy ? "healthy" : "down" },
+    { label: "MCP Server", badge: "unmonitored" },
+    { label: "Guardrails", badge: "unmonitored" },
+    { label: "Evals", badge: "unmonitored" },
+  ];
+  const badgeLabel = { healthy: "Healthy", unmonitored: "Not monitored", down: "Unavailable" };
+  qs("#env-status-rows").innerHTML = rows.map((r) => `
+    <div class="field-row"><span class="label">${r.label}</span><span class="health-badge ${r.badge}"><span class="dot"></span>${badgeLabel[r.badge]}</span></div>
+  `).join("");
+
+  qs("#env-status-banner").classList.toggle("down", !apiHealthy);
+  qs("#env-status-banner-text").textContent = apiHealthy ? "API operational" : "API unavailable";
+
+  const slug = currentTenantSlug();
+  const tenant = tenants.find((t) => t.slug === slug);
+  qs("#env-status-environment").textContent = tenant ? tenant.environment : "—";
 }
 
 /* ---------------- tenant-scoped settings (General / Model & Prompt) ----------------
@@ -208,7 +243,6 @@ function initAddTenantModal() {
 let settingsWired = false;
 
 export async function renderSettingsPage() {
-  updateSettingsIdentity();
   if (!settingsWired) {
     initSettingsTabs();
     initAddTenantModal();
@@ -216,6 +250,7 @@ export async function renderSettingsPage() {
     initModelSettingsForm();
     settingsWired = true;
   }
-  await loadAndRenderTenants();
+  const tenants = await loadAndRenderTenants();
   await loadAndRenderTenantSettings();
+  await loadAndRenderEnvironmentStatus(tenants);
 }

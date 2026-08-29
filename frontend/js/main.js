@@ -1,5 +1,5 @@
 /* Human-Led Agent Lab — entry point: routing, nav, boot */
-import { qs, qsa, API_BASE, checkHealth } from "./shared.js";
+import { qs, qsa, checkHealth } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
 import { renderRunsPage } from "./runs.js";
 import { renderApprovalsPage } from "./approvals.js";
@@ -88,8 +88,6 @@ function initMisc() {
   qs("#collapse-btn").addEventListener("click", () => {
     qs("#sidebar").classList.toggle("collapsed");
   });
-
-  qs("#settings-api-base").textContent = API_BASE || `${location.origin} (same-origin)`;
 }
 
 /* ---------------- app start (post-login / restored session) ---------------- */
