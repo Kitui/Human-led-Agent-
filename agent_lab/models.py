@@ -71,17 +71,27 @@ class WorkflowRun(AgentRun):
 
 
 class EvalCaseResult(BaseModel):
-    """Real outcome of running one eval case against the live investigator
-    agent — nothing here is simulated."""
+    """Real outcome of one eval case against the live workflow.
+
+    Cases can evaluate an Action Point, an expected guardrail block, or an
+    expected invalid-tenant stop. Tool-aware cases also record the concrete MCP
+    outcome (FOUND / ACCESS_DENIED / NOT_FOUND) instead of only checking that a
+    tool happened to be called.
+    """
 
     name: str
+    category: str
     tenant_id: str
     input: str
-    expected_priority: str
+    expected_outcome: Literal["action_point", "guardrail_block", "invalid_tenant"] = "action_point"
+    actual_outcome: Literal["action_point", "guardrail_block", "invalid_tenant", "error"] | None = None
+    expected_priority: str | None = None
     actual_priority: str | None = None
-    expected_approval: bool
+    expected_approval: bool | None = None
     actual_approval: bool | None = None
     expects_tool_call: bool = False
+    expected_tool_result: Literal["FOUND", "ACCESS_DENIED", "NOT_FOUND"] | None = None
+    actual_tool_result: Literal["FOUND", "ACCESS_DENIED", "NOT_FOUND", "UNPARSEABLE"] | None = None
     tool_call_correct: bool | None = None
     passed: bool
     error: str | None = None
