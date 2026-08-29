@@ -25,6 +25,7 @@ import {
 
 let evalsChartInstance = null;
 let categoryChartInstance = null;
+let realCategoryChartInstance = null;
 
 async function fetchEvalRuns() {
   try {
@@ -56,6 +57,22 @@ function computeCategoryStats(runs) {
       // tool_call_correct is null (not applicable) for the rest.
       if (c.tool_call_correct === true) cats["Tool Use"].pass++;
       else if (c.tool_call_correct === false) cats["Tool Use"].fail++;
+    });
+  });
+  return cats;
+}
+
+// Pass/fail per real topic label (EvalCaseResult.category, e.g. "Security
+// Guardrails" -- see eval_cases.py), using each case's own overall `passed`
+// result. Unrelated to computeCategoryStats() above, which always has
+// exactly three fixed judgment-skill rows regardless of topic.
+function computeRealCategoryStats(runs) {
+  const cats = {};
+  runs.forEach((run) => {
+    run.cases.forEach((c) => {
+      if (!cats[c.category]) cats[c.category] = { pass: 0, fail: 0 };
+      if (c.passed) cats[c.category].pass++;
+      else cats[c.category].fail++;
     });
   });
   return cats;
@@ -189,38 +206,20 @@ function renderEvalsScoreChart(runs) {
   });
 }
 
-function renderCategoryBreakdown(runs) {
-  const container = qs("#evals-category-breakdown");
-  if (categoryChartInstance) { categoryChartInstance.destroy(); categoryChartInstance = null; }
-
-  if (runs.length === 0) {
-    container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
-    return;
-  }
-  const cats = computeCategoryStats(runs);
-  const names = Object.keys(cats);
+// Shared by renderCategoryBreakdown (3 fixed judgment-skill rows) and
+// renderRealCategoryBreakdown (real per-case topic labels) -- same chart
+// shape, different data source. Returns the created Chart instance so each
+// caller can track/destroy its own.
+function renderPassFailBarChart(canvasEl, cats, names) {
   const totals = names.map((name) => cats[name].pass + cats[name].fail);
   const passPct = names.map((name, i) => (totals[i] ? (cats[name].pass / totals[i]) * 100 : 0));
   const failPct = names.map((name, i) => (totals[i] ? (cats[name].fail / totals[i]) * 100 : 0));
-
-  let totalPass = 0, totalFail = 0;
-  names.forEach((name) => { totalPass += cats[name].pass; totalFail += cats[name].fail; });
-  const grandTotal = totalPass + totalFail;
-  const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
-
-  container.innerHTML = `
-    <div class="chart-container" style="height:180px;"><canvas id="evals-category-canvas"></canvas></div>
-    <div class="category-bar-total-row">
-      <span>Total</span>
-      <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
-    </div>
-  `;
 
   const success = cssVar("--success", "#16A34A");
   const danger = cssVar("--danger", "#DC2626");
   const textFaint = cssVar("--text-faint", "#9CA3AF");
 
-  categoryChartInstance = new Chart(qs("#evals-category-canvas").getContext("2d"), {
+  return new Chart(canvasEl.getContext("2d"), {
     type: "bar",
     data: {
       labels: names,
@@ -261,6 +260,60 @@ function renderCategoryBreakdown(runs) {
       },
     },
   });
+}
+
+function renderCategoryBreakdown(runs) {
+  const container = qs("#evals-category-breakdown");
+  if (categoryChartInstance) { categoryChartInstance.destroy(); categoryChartInstance = null; }
+
+  if (runs.length === 0) {
+    container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
+    return;
+  }
+  const cats = computeCategoryStats(runs);
+  const names = Object.keys(cats);
+
+  let totalPass = 0, totalFail = 0;
+  names.forEach((name) => { totalPass += cats[name].pass; totalFail += cats[name].fail; });
+  const grandTotal = totalPass + totalFail;
+  const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
+
+  container.innerHTML = `
+    <div class="chart-container" style="height:180px;"><canvas id="evals-category-canvas"></canvas></div>
+    <div class="category-bar-total-row">
+      <span>Total</span>
+      <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
+    </div>
+  `;
+
+  categoryChartInstance = renderPassFailBarChart(qs("#evals-category-canvas"), cats, names);
+}
+
+function renderRealCategoryBreakdown(runs) {
+  const container = qs("#evals-real-category-breakdown");
+  if (realCategoryChartInstance) { realCategoryChartInstance.destroy(); realCategoryChartInstance = null; }
+
+  if (runs.length === 0) {
+    container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
+    return;
+  }
+  const cats = computeRealCategoryStats(runs);
+  const names = Object.keys(cats).sort();
+
+  let totalPass = 0, totalFail = 0;
+  names.forEach((name) => { totalPass += cats[name].pass; totalFail += cats[name].fail; });
+  const grandTotal = totalPass + totalFail;
+  const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
+
+  container.innerHTML = `
+    <div class="chart-container" style="height:${Math.max(180, names.length * 50)}px;"><canvas id="evals-real-category-canvas"></canvas></div>
+    <div class="category-bar-total-row">
+      <span>Total</span>
+      <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
+    </div>
+  `;
+
+  realCategoryChartInstance = renderPassFailBarChart(qs("#evals-real-category-canvas"), cats, names);
 }
 
 function renderEvalsSuitesTable(runs) {
@@ -365,6 +418,7 @@ export async function renderEvalsPage() {
   renderEvalsStats(runs);
   renderEvalsScoreChart(runs);
   renderCategoryBreakdown(runs);
+  renderRealCategoryBreakdown(runs);
   renderEvalsSuitesTable(runs);
   renderFailedCases(runs);
 
