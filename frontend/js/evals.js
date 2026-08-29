@@ -1,15 +1,20 @@
 /* Human-Led Agent Lab — Evals page
  *
  * Every number here comes from actually running agent_lab/eval_cases.py's
- * 3 real cases against the live investigator agent via POST /evals/run
- * (see agent_lab/evals_runner.py) — nothing is simulated. This means the
- * page starts empty until you click "Run Evals", unlike the reference
- * design's pre-populated 524-case history: this codebase has 3 real eval
- * cases, not hundreds, and no persisted run history before your first
- * click (in-memory only, like everything else in this demo).
- * "Category" here is the two real dimensions each case actually checks
- * (priority classification, approval-required decision) — not a
- * fabricated taxonomy.
+ * real cases against the live investigator agent via POST /evals/run (see
+ * agent_lab/evals_runner.py) — nothing is simulated. The page starts empty
+ * until you click "Run Evals"; run history is persisted in PostgreSQL.
+ *
+ * Two different, unrelated things are both called "category" in this file
+ * -- worth keeping straight:
+ *  - Each eval case has a real topic label (EvalCaseResult.category, e.g.
+ *    "Security Guardrails", "Tenant Controls" -- see eval_cases.py). The
+ *    "Number of Test Cases" stat counts how many distinct labels appear in
+ *    the latest run.
+ *  - The "Pass / Fail by Category" chart below checks three specific,
+ *    hardcoded judgment dimensions every case is scored on regardless of
+ *    its topic label: did the agent pick the right priority, the right
+ *    approval decision, and (where applicable) call its tool correctly.
  */
 import {
   qs, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
@@ -17,6 +22,7 @@ import {
 } from "./shared.js";
 
 let evalsChartInstance = null;
+let categoryChartInstance = null;
 
 async function fetchEvalRuns() {
   try {
@@ -62,10 +68,16 @@ function computeRegressions(runs) {
   return latest.cases.filter((c) => !c.passed && prevByName[c.name] && prevByName[c.name].passed);
 }
 
+function countRealCategories(run) {
+  if (!run) return 0;
+  return new Set(run.cases.map((c) => c.category)).size;
+}
+
 function renderEvalsStats(runs) {
   const latest = runs[0] || null;
   const previous = runs[1] || null;
   const regressions = computeRegressions(runs);
+  const categoryCount = countRealCategories(latest);
 
   const scoreTrend = latest && previous
     ? deltaFromYesterdayHtml(latest.score, previous.score, (n) => `${n.toFixed(1)} pts`).replace("from yesterday", "vs last run")
@@ -103,7 +115,7 @@ function renderEvalsStats(runs) {
       <div class="stat-body">
         <div class="stat-label">Number of Test Cases</div>
         <div class="stat-value">${latest ? latest.total_count : "—"}</div>
-        <span class="stat-trend flat">3 categories</span>
+        <span class="stat-trend flat">${latest ? `${categoryCount} categor${categoryCount === 1 ? "y" : "ies"}` : "Not run yet"}</span>
       </div>
     </div>
     <div class="stat-card">
@@ -177,47 +189,76 @@ function renderEvalsScoreChart(runs) {
 
 function renderCategoryBreakdown(runs) {
   const container = qs("#evals-category-breakdown");
+  if (categoryChartInstance) { categoryChartInstance.destroy(); categoryChartInstance = null; }
+
   if (runs.length === 0) {
     container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
     return;
   }
   const cats = computeCategoryStats(runs);
+  const names = Object.keys(cats);
+  const totals = names.map((name) => cats[name].pass + cats[name].fail);
+  const passPct = names.map((name, i) => (totals[i] ? (cats[name].pass / totals[i]) * 100 : 0));
+  const failPct = names.map((name, i) => (totals[i] ? (cats[name].fail / totals[i]) * 100 : 0));
+
   let totalPass = 0, totalFail = 0;
-
-  const rows = Object.entries(cats).map(([name, c]) => {
-    const total = c.pass + c.fail;
-    const passPct = total ? (c.pass / total) * 100 : 0;
-    const failPct = total ? (c.fail / total) * 100 : 0;
-    totalPass += c.pass;
-    totalFail += c.fail;
-    return `
-      <div class="category-bar-row">
-        <div class="category-bar-head">
-          <span class="cat-name">${escapeHtml(name)}</span>
-          <span class="cat-rate">${total ? `${passPct.toFixed(0)}% (${c.pass}/${total})` : "—"}</span>
-        </div>
-        <div class="category-bar-track">
-          ${passPct > 0 ? `<div class="category-bar-seg pass" style="width:${passPct}%;"></div>` : ""}
-          ${failPct > 0 ? `<div class="category-bar-seg fail" style="width:${failPct}%;"></div>` : ""}
-        </div>
-      </div>
-    `;
-  }).join("");
-
+  names.forEach((name) => { totalPass += cats[name].pass; totalFail += cats[name].fail; });
   const grandTotal = totalPass + totalFail;
   const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
 
   container.innerHTML = `
-    <div class="category-legend">
-      <span><span class="dot pass"></span>Pass</span>
-      <span><span class="dot fail"></span>Fail</span>
-    </div>
-    ${rows}
+    <div class="chart-container" style="height:180px;"><canvas id="evals-category-canvas"></canvas></div>
     <div class="category-bar-total-row">
       <span>Total</span>
       <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
     </div>
   `;
+
+  const success = cssVar("--success", "#16A34A");
+  const danger = cssVar("--danger", "#DC2626");
+  const textFaint = cssVar("--text-faint", "#9CA3AF");
+
+  categoryChartInstance = new Chart(qs("#evals-category-canvas").getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: names,
+      datasets: [
+        {
+          label: "Pass",
+          data: passPct,
+          backgroundColor: success,
+          counts: names.map((name) => cats[name].pass),
+        },
+        {
+          label: "Fail",
+          data: failPct,
+          backgroundColor: danger,
+          counts: names.map((name) => cats[name].fail),
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` } },
+        y: { stacked: true, ticks: { color: textFaint, font: { size: 11.5 } } },
+      },
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const count = ctx.dataset.counts[ctx.dataIndex];
+              const total = totals[ctx.dataIndex];
+              return `${ctx.dataset.label}: ${ctx.parsed.x.toFixed(0)}% (${count}/${total})`;
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 function renderEvalsSuitesTable(runs) {
