@@ -810,3 +810,40 @@ tbody tr.row-selected { background: var(--primary-bg); }
 .settings-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 .settings-tab-panel { display: none; }
 .settings-tab-panel.active { display: block; }
+
+/* ---------- General Settings / Model & Prompt forms ---------- */
+.settings-tenant-indicator { margin: 0 0 14px; font-size: 13px; color: var(--text-secondary); }
+
+/* Both new forms need identical input styling; scoped once via
+   .settings-form rather than repeating under two form IDs the way
+   #login-form / #add-tenant-form do -- would just be needless duplication
+   here since both forms share the exact same field types. */
+.settings-form input[type="text"],
+.settings-form input[type="number"] {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; outline: none; display: block;
+}
+.settings-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.settings-form textarea { width: 100%; }
+
+.settings-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+.settings-field .field-label { margin-bottom: 6px; }
+.settings-field.field-full { grid-column: 1 / -1; }
+.field-note { margin: 6px 0 0; font-size: 12px; color: var(--text-faint); }
+
+.settings-save-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+/* ---------- Toggle switch ---------- */
+.toggle-row { display: flex; align-items: center; gap: 10px; }
+.toggle-row-label { font-weight: 600; font-size: 13.5px; }
+.toggle-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; cursor: pointer; }
+.toggle-switch input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+  opacity: 0; cursor: pointer; z-index: 1; /* sits above the track/knob so clicks
+  actually reach the checkbox instead of being captured by the visible layer */
+}
+.toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: background 0.15s ease; }
+.toggle-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(16,24,40,0.25); transition: transform 0.15s ease; }
+.toggle-switch input:checked + .toggle-track { background: var(--primary); }
+.toggle-switch input:checked + .toggle-track .toggle-knob { transform: translateX(18px); }
+.toggle-switch input:focus-visible + .toggle-track { box-shadow: 0 0 0 3px var(--primary-bg); }

@@ -157,6 +157,19 @@ export function clearAuthSession() {
   try { sessionStorage.removeItem(AUTH_KEY); } catch (_) { /* ignore */ }
 }
 
+/* FastAPI's own automatic request-validation errors (422) send `detail` as
+ * a LIST of {msg, loc, type} objects, not a plain string like every custom
+ * HTTPException(detail="...") raised elsewhere in this app -- passing that
+ * list straight into `new Error(...)` stringifies it as the useless literal
+ * text "[object Object]". Extract a readable message either way. */
+function formatErrorDetail(detail) {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => (item && item.msg) ? item.msg : JSON.stringify(item)).join("; ");
+  }
+  return JSON.stringify(detail);
+}
+
 /* ---------------- network ---------------- */
 export async function api(path, opts) {
   opts = opts || {};
@@ -173,7 +186,7 @@ export async function api(path, opts) {
       location.reload();
       throw new Error("Session expired.");
     }
-    const detail = body && body.detail ? body.detail : res.statusText;
+    const detail = body && body.detail ? formatErrorDetail(body.detail) : res.statusText;
     const err = new Error(detail);
     err.status = res.status;
     throw err;

@@ -32,12 +32,13 @@ function navigateTo(page) {
 
 const VALID_PAGES = ["dashboard", "investigate", "runs", "approvals", "traces", "evals", "settings"];
 
+function currentPage() {
+  const page = (location.hash || "#investigate").slice(1);
+  return VALID_PAGES.includes(page) ? page : "investigate";
+}
+
 function initRouter() {
-  const go = () => {
-    let page = (location.hash || "#investigate").slice(1);
-    if (!VALID_PAGES.includes(page)) page = "investigate";
-    navigateTo(page);
-  };
+  const go = () => navigateTo(currentPage());
   window.addEventListener("hashchange", go);
   go();
 }
@@ -57,6 +58,7 @@ function initTenantSelect() {
     btn.addEventListener("click", () => {
       qs("#tenant-select-label").textContent = btn.dataset.tenant;
       wrap.classList.remove("open");
+      navigateTo(currentPage()); // re-render the visible page for the new tenant
     });
   });
   document.addEventListener("click", (e) => {
