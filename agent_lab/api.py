@@ -12,9 +12,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from .auth import authenticate_user, create_access_token, get_current_user
-from .db import get_db, init_db, seed_default_tenants, seed_demo_users
+from .db import get_db, init_db, seed_default_tenant_settings, seed_default_tenants, seed_demo_users
 from .evals_runner import list_eval_runs, run_eval_suite
-from .models import AuthenticatedUser, EvalSuiteRun, LoginResponse, RunStatus, Tenant, WorkflowRun
+from .models import AuthenticatedUser, EvalSuiteRun, LoginResponse, RunStatus, Tenant, TenantSettings, WorkflowRun
+from .tenant_settings import get_or_create_settings, update_settings
 from .tenants import (
     DuplicateTenantError,
     TenantNotFoundError,
@@ -28,6 +29,7 @@ from .workflow import (
     InvalidRunStateError,
     InvalidTenantError,
     RunNotFoundError,
+    TooManyConcurrentRunsError,
     approve_run,
     get_run,
     investigate_issue,
@@ -41,6 +43,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     await seed_demo_users()
     await seed_default_tenants()
+    await seed_default_tenant_settings()
     yield
 
 
@@ -84,6 +87,21 @@ class TenantUpdateRequest(BaseModel):
     is_active: bool
 
 
+class TenantSettingsUpdateRequest(BaseModel):
+    environment_name: str | None = None
+    log_level: Literal["Debug", "Info", "Warning", "Error"] | None = None
+    default_language: str | None = None
+    default_timezone: str | None = None
+    max_concurrent_runs: int | None = Field(default=None, ge=1)
+    max_steps: int | None = Field(default=None, ge=1)
+    retry_limit: int | None = Field(default=None, ge=1)
+    default_model: str | None = None
+    system_prompt_override: str | None = None
+    auto_update_prompt: bool | None = None
+    # prompt_version is server-managed (auto-incremented only when
+    # system_prompt_override actually changes) -- never accepted here.
+
+
 @app.get("/health")
 async def health() -> dict:
     return {
@@ -122,6 +140,8 @@ async def investigate(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except GuardrailBlockedError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except TooManyConcurrentRunsError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -257,6 +277,31 @@ async def update_tenant_route(
 ) -> Tenant:
     try:
         return await set_tenant_active(db, slug, request.is_active)
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Tenant not found.") from exc
+
+
+@app.get("/tenants/{slug}/settings", response_model=TenantSettings)
+async def read_tenant_settings(
+    slug: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TenantSettings:
+    try:
+        return await get_or_create_settings(db, slug)
+    except TenantNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Tenant not found.") from exc
+
+
+@app.patch("/tenants/{slug}/settings", response_model=TenantSettings)
+async def update_tenant_settings_route(
+    slug: str,
+    request: TenantSettingsUpdateRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TenantSettings:
+    try:
+        return await update_settings(db, slug, **request.model_dump(exclude_unset=True))
     except TenantNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Tenant not found.") from exc
 

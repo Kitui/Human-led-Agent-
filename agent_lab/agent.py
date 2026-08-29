@@ -1,5 +1,6 @@
 from agents import Agent
 
+from .models import ActionPoint, TenantSettings
 from .tools import create_task
 
 
@@ -58,10 +59,53 @@ Rules:
 """
 
 
-execution_agent = Agent(
-    name="Operations Executor",
-    instructions=EXECUTION_PROMPT,
-    tools=[
-        create_task,
-    ],
-)
+def build_execution_agent(model: str | None = None) -> Agent:
+    """Per-call construction (replaces the old module-level singleton) so
+    each tenant's configured default_model can be applied independently."""
+
+    return Agent(
+        name="Operations Executor",
+        instructions=EXECUTION_PROMPT,
+        tools=[create_task],
+        model=model,
+    )
+
+
+def build_investigator_agent(mcp_server, instructions: str, *, model: str | None = None) -> Agent:
+    return Agent(
+        name="Operations Investigator",
+        instructions=instructions,
+        output_type=ActionPoint,
+        mcp_servers=[mcp_server],
+        model=model,
+    )
+
+
+def resolve_system_prompt(settings: TenantSettings) -> str:
+    """Decide which base system prompt an investigation uses for this tenant.
+
+    - auto_update_prompt=True (default): always SYSTEM_PROMPT, regardless of
+      any saved override -- "stay on defaults, don't use my override".
+    - auto_update_prompt=False: use the tenant's saved override if one is
+      set (non-empty), else fall back to SYSTEM_PROMPT.
+
+    Pure function, no I/O -- unit-testable without a DB or a real agent call.
+    """
+
+    if settings.auto_update_prompt:
+        return SYSTEM_PROMPT
+    if settings.system_prompt_override:
+        return settings.system_prompt_override
+    return SYSTEM_PROMPT
+
+
+def resolve_investigator_instructions(settings: TenantSettings) -> str:
+    """Final instructions string for a tenant's investigator agent: the
+    resolved base prompt plus an optional language directive. Real
+    behavioral effect -- only appended when the tenant has changed
+    default_language away from the default."""
+
+    instructions = resolve_system_prompt(settings)
+    if settings.default_language and settings.default_language != "English (US)":
+        instructions += f"\n\nRespond to the human in {settings.default_language}."
+    return instructions

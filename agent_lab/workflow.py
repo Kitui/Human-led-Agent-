@@ -1,22 +1,53 @@
 import hashlib
+import logging
 import sys
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agents import Agent, Runner
+from agents import Runner
 from agents.mcp import MCPServerStdio
 from agents.tool import ToolOriginType
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .agent import SYSTEM_PROMPT
+from .agent import build_execution_agent, build_investigator_agent, resolve_investigator_instructions
 from .db_models import WorkflowRunORM, workflow_run_to_columns
 from .execution import execute_with_retry
 from .guardrails import validate_input
-from .models import ActionPoint, RunStatus, TraceEvent, WorkflowRun
+from .models import RunStatus, TenantSettings, TraceEvent, WorkflowRun
+from .tenant_settings import get_or_create_settings
 from .tenants import is_valid_active_tenant
+
+
+logger = logging.getLogger(__name__)
+# No explicit `level=` here -- that would raise the ROOT logger's level and
+# leak verbosity into every third-party library (asyncio, uvicorn, etc.).
+# _apply_log_level() below sets OUR two named loggers' own levels instead,
+# which is honored independently of root's level; this basicConfig call
+# only exists to attach a formatted handler so those messages have
+# somewhere to actually print.
+logging.basicConfig(format="[%(name)s] %(message)s")
+
+_LOG_LEVELS = {
+    "Debug": logging.DEBUG,
+    "Info": logging.INFO,
+    "Warning": logging.WARNING,
+    "Error": logging.ERROR,
+}
+
+
+def _apply_log_level(log_level: str) -> None:
+    """Set this process's workflow/execution loggers to the tenant's
+    configured level, for the duration of this request. Known limitation:
+    a single process-wide logger level, not scoped per-request -- accepted
+    for this single-process lab (same tradeoff class as _in_flight_runs
+    below)."""
+
+    level = _LOG_LEVELS.get(log_level, logging.INFO)
+    logger.setLevel(level)
+    logging.getLogger("agent_lab.execution").setLevel(level)
 
 
 class InvalidTenantError(ValueError):
@@ -35,12 +66,34 @@ class InvalidRunStateError(RuntimeError):
     pass
 
 
+class TooManyConcurrentRunsError(RuntimeError):
+    pass
+
+
+# In-memory only -- resets on restart, not shared across app instances.
+# Acceptable for this single-process lab; see tenant-settings plan.
+_in_flight_runs: dict[str, int] = {}
+
+# Synthetic-QA fallback for the eval-suite path (persist=False, db=None) --
+# never touches the DB, exactly mirroring how the tenant-existence check
+# below is already skipped for that path.
+_EVAL_DEFAULT_SETTINGS = TenantSettings(tenant_slug="")
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
 def _touch(run: WorkflowRun) -> None:
     run.updated_at = _now()
+
+
+def _new_workflow_run(tenant_id: str, issue: str, settings: TenantSettings) -> WorkflowRun:
+    """Construct a fresh WorkflowRun using this tenant's configured
+    max_steps. Kept as a tiny pure helper (no I/O) so the max_steps wiring
+    is unit-testable without a DB or a real agent call."""
+
+    return WorkflowRun(run_id=str(uuid.uuid4()), tenant_id=tenant_id, issue=issue, max_steps=settings.max_steps)
 
 
 async def _persist(db: AsyncSession, orm_row: WorkflowRunORM, run: WorkflowRun) -> None:
@@ -165,61 +218,67 @@ async def investigate_issue(
     if not issue:
         raise ValueError("Issue cannot be empty.")
 
-    guardrail_result = await validate_input(issue)
-    if guardrail_result.blocked:
-        raise GuardrailBlockedError(guardrail_result.reason)
+    settings = await get_or_create_settings(db, tenant_id) if db is not None else _EVAL_DEFAULT_SETTINGS
+    _apply_log_level(settings.log_level)
 
-    run = WorkflowRun(
-        run_id=str(uuid.uuid4()),
-        tenant_id=tenant_id,
-        issue=issue,
-    )
+    if db is not None:
+        in_flight = _in_flight_runs.get(tenant_id, 0)
+        if in_flight >= settings.max_concurrent_runs:
+            raise TooManyConcurrentRunsError(
+                f"Tenant '{tenant_id}' has reached its max_concurrent_runs limit ({settings.max_concurrent_runs})."
+            )
+        _in_flight_runs[tenant_id] = in_flight + 1
 
-    run.trace.append(
-        TraceEvent(
-            timestamp=_now(),
-            kind="guardrail",
-            label="Guardrail checked",
-            tag="PASS",
-            detail=guardrail_result.reason,
-        )
-    )
+    try:
+        guardrail_result = await validate_input(issue)
+        if guardrail_result.blocked:
+            raise GuardrailBlockedError(guardrail_result.reason)
 
-    started = time.perf_counter()
+        run = _new_workflow_run(tenant_id, issue, settings)
 
-    run.status = RunStatus.INVESTIGATING
-    run.step_count += 1
-    _touch(run)
-
-    # Persisted here, before the slow agent call, so a crash mid-investigation
-    # still leaves a visible "investigating" row instead of losing it silently.
-    orm_row: WorkflowRunORM | None = None
-    if persist:
-        orm_row = WorkflowRunORM(**workflow_run_to_columns(run))
-        db.add(orm_row)
-        await db.commit()
-
-    current_dir = Path(__file__).parent
-
-    print(f"[RUN ID] {run.run_id}")
-    print(f"[STATE] {run.status}")
-    print("[TRACE] Starting MCP-powered investigation")
-
-    async with MCPServerStdio(
-        name="Customer Operations MCP",
-        params={
-            "command": sys.executable,
-            "args": [str(current_dir / "mcp_server.py")],
-        },
-    ) as mcp_server:
-        investigator_with_mcp = Agent(
-            name="Operations Investigator",
-            instructions=SYSTEM_PROMPT,
-            output_type=ActionPoint,
-            mcp_servers=[mcp_server],
+        run.trace.append(
+            TraceEvent(
+                timestamp=_now(),
+                kind="guardrail",
+                label="Guardrail checked",
+                tag="PASS",
+                detail=guardrail_result.reason,
+            )
         )
 
-        investigation_input = f"""
+        started = time.perf_counter()
+
+        run.status = RunStatus.INVESTIGATING
+        run.step_count += 1
+        _touch(run)
+
+        # Persisted here, before the slow agent call, so a crash mid-investigation
+        # still leaves a visible "investigating" row instead of losing it silently.
+        orm_row: WorkflowRunORM | None = None
+        if persist:
+            orm_row = WorkflowRunORM(**workflow_run_to_columns(run))
+            db.add(orm_row)
+            await db.commit()
+
+        current_dir = Path(__file__).parent
+
+        logger.info(f"[RUN ID] {run.run_id}")
+        logger.info(f"[STATE] {run.status}")
+        logger.debug("[TRACE] Starting MCP-powered investigation")
+
+        async with MCPServerStdio(
+            name="Customer Operations MCP",
+            params={
+                "command": sys.executable,
+                "args": [str(current_dir / "mcp_server.py")],
+            },
+        ) as mcp_server:
+            instructions = resolve_investigator_instructions(settings)
+            investigator_with_mcp = build_investigator_agent(
+                mcp_server, instructions, model=settings.default_model or None
+            )
+
+            investigation_input = f"""
 Current Tenant:
 {tenant_id}
 
@@ -230,43 +289,46 @@ When calling get_customer,
 you MUST pass the current tenant_id exactly.
 """
 
-        result = await Runner.run(
-            investigator_with_mcp,
-            investigation_input,
+            result = await Runner.run(
+                investigator_with_mcp,
+                investigation_input,
+            )
+
+        logger.debug("[TRACE] Investigation completed")
+
+        run.trace.extend(_tool_call_trace_events(result.new_items))
+        _accumulate_metrics(run, result)
+
+        run.action_point = result.final_output
+        run.duration_seconds = time.perf_counter() - started
+
+        if run.action_point.requires_human_approval:
+            run.status = RunStatus.AWAITING_APPROVAL
+            run.step_count += 1
+        else:
+            run.status = RunStatus.COMPLETED
+        _touch(run)
+
+        run.trace.append(
+            TraceEvent(
+                timestamp=_now(),
+                kind="execution",
+                label="Action point generated",
+                detail=(
+                    f"Priority: {run.action_point.priority}. "
+                    f"Requires human approval: {run.action_point.requires_human_approval}."
+                ),
+            )
         )
 
-    print("[TRACE] Investigation completed")
+        if persist:
+            await _persist(db, orm_row, run)
 
-    run.trace.extend(_tool_call_trace_events(result.new_items))
-    _accumulate_metrics(run, result)
-
-    run.action_point = result.final_output
-    run.duration_seconds = time.perf_counter() - started
-
-    if run.action_point.requires_human_approval:
-        run.status = RunStatus.AWAITING_APPROVAL
-        run.step_count += 1
-    else:
-        run.status = RunStatus.COMPLETED
-    _touch(run)
-
-    run.trace.append(
-        TraceEvent(
-            timestamp=_now(),
-            kind="execution",
-            label="Action point generated",
-            detail=(
-                f"Priority: {run.action_point.priority}. "
-                f"Requires human approval: {run.action_point.requires_human_approval}."
-            ),
-        )
-    )
-
-    if persist:
-        await _persist(db, orm_row, run)
-
-    print(f"[STATE] {run.status}")
-    return run
+        logger.info(f"[STATE] {run.status}")
+        return run
+    finally:
+        if db is not None:
+            _in_flight_runs[tenant_id] = _in_flight_runs.get(tenant_id, 1) - 1
 
 
 async def approve_run(db: AsyncSession, run_id: str, comment: str | None = None) -> WorkflowRun:
@@ -276,6 +338,9 @@ async def approve_run(db: AsyncSession, run_id: str, comment: str | None = None)
     if orm_row is None:
         raise RunNotFoundError(run_id)
     run = WorkflowRun.model_validate(orm_row, from_attributes=True)
+
+    settings = await get_or_create_settings(db, run.tenant_id)
+    _apply_log_level(settings.log_level)
 
     # Safe repeated read of a completed run. Do not execute again.
     if run.status == RunStatus.COMPLETED:
@@ -302,7 +367,7 @@ async def approve_run(db: AsyncSession, run_id: str, comment: str | None = None)
 
     run.status = RunStatus.APPROVED
     _touch(run)
-    print(f"[STATE] {run.status}")
+    logger.info(f"[STATE] {run.status}")
 
     if run.step_count >= run.max_steps:
         run.status = RunStatus.FAILED
@@ -314,8 +379,8 @@ async def approve_run(db: AsyncSession, run_id: str, comment: str | None = None)
     run.status = RunStatus.EXECUTING
     run.step_count += 1
     _touch(run)
-    print(f"[STATE] {run.status}")
-    print("[TRACE] Starting execution agent")
+    logger.info(f"[STATE] {run.status}")
+    logger.debug("[TRACE] Starting execution agent")
 
     run.trace.append(
         TraceEvent(
@@ -341,7 +406,7 @@ async def approve_run(db: AsyncSession, run_id: str, comment: str | None = None)
 
     run.idempotency_key = idempotency_key
 
-    print(f"[IDEMPOTENCY KEY] {idempotency_key[:12]}...")
+    logger.debug(f"[IDEMPOTENCY KEY] {idempotency_key[:12]}...")
 
     execution_input = f"""
 The following Action Point has been approved by a human.
@@ -379,8 +444,9 @@ Do not change the scope of the approved action.
 
     try:
         execution_result = await execute_with_retry(
+            build_execution_agent(settings.default_model or None),
             execution_input,
-            max_retries=3,
+            max_retries=settings.retry_limit,
         )
     except Exception as exc:
         run.status = RunStatus.FAILED
@@ -395,7 +461,7 @@ Do not change the scope of the approved action.
                 detail=str(exc)[:300],
             )
         )
-        print(f"[STATE] {run.status}")
+        logger.info(f"[STATE] {run.status}")
         await _persist(db, orm_row, run)
         return run
 
@@ -416,8 +482,8 @@ Do not change the scope of the approved action.
         )
     )
 
-    print("[TRACE] Execution completed")
-    print(f"[STATE] {run.status}")
+    logger.debug("[TRACE] Execution completed")
+    logger.info(f"[STATE] {run.status}")
 
     await _persist(db, orm_row, run)
 
@@ -455,6 +521,6 @@ async def reject_run(db: AsyncSession, run_id: str, comment: str | None = None) 
             label="Rejected by human reviewer",
         )
     )
-    print(f"[STATE] {run.status}")
+    logger.info(f"[STATE] {run.status}")
     await _persist(db, orm_row, run)
     return run
