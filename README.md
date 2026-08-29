@@ -10,10 +10,16 @@ Client / Swagger UI
      FastAPI
        ↓
    workflow.py  ──────────→  PostgreSQL
-       ↓                    (runs, evals, users,
-Guardrail                    tenants, settings,
+       ↓                    (runs, customers, evals,
+Guardrail                    users, tenants, settings,
        ↓                     executed actions)
-Investigator Agent → MCP → get_customer
+Investigator Agent
+       ↓
+      MCP → get_customer
+       ↓
+Customer service
+       ↓
+PostgreSQL customers
        ↓
 Structured Action Point
        ↓
@@ -33,7 +39,7 @@ The CLI still works through `agent_lab/app.py`, but both the CLI and FastAPI cal
 ## Project layout
 
 ```text
-agent_lab/       Application package (agent, api, workflow, DB, MCP, GitHub task adapter, ...)
+agent_lab/       Application package (agent, API, workflow, DB, customer service, MCP, GitHub adapter, ...)
 frontend/        Static dashboard UI (plain HTML/CSS/JS), served by the API
 evals/           AI quality-gate eval suite (run in CI)
 scripts/         Standalone manual smoke-test scripts (MCP)
@@ -113,6 +119,14 @@ Returns an `access_token` (JWT) and the tenants this account may act on (`tenant
 
 `tenant_id` must be one of the tenants your logged-in account is allowed to use, or the API returns `403`. Copy the returned `run_id`.
 
+The investigator's `get_customer` MCP tool no longer reads a Python dictionary. It calls `agent_lab/customers.py`, which resolves the tenant-owned record from the PostgreSQL `customers` table. The demo ACME and GreenMart rows are seeded into that table only when missing and can be changed in PostgreSQL without changing agent or MCP code.
+
+Tenant behavior remains explicit:
+
+- correct tenant + known customer → customer data
+- known customer owned by another tenant → `ACCESS_DENIED`
+- unknown customer → `NOT_FOUND`
+
 ### 4. Approve
 
 `POST /runs/{run_id}/approve`
@@ -130,6 +144,24 @@ Reject with:
 ### 6. List runs
 
 `GET /runs` (optional `status` / `tenant_id` query filters) — used by the dashboard UI's Runs, Approvals, and Dashboard pages. Only returns runs for tenants your account can access.
+
+## Customer data and MCP
+
+`agent_lab/mcp_server.py` defines the agent-facing `get_customer(customer_name, tenant_id)` tool. It owns no customer records itself. The tool opens a database session and delegates lookup to `agent_lab/customers.py`.
+
+The `customers` table stores:
+
+- tenant ownership
+- display and normalized customer name
+- plan
+- account status
+- renewal value and status
+- billing status
+- created/updated timestamps
+
+A unique `(tenant_id, normalized_name)` constraint prevents duplicate customer identities inside a tenant while still allowing different tenants to have customers with the same name.
+
+ACME and GreenMart remain reference/demo records, but they now live in PostgreSQL and are seeded idempotently. This means the data can evolve independently of the MCP server and investigator prompt.
 
 ## GitHub task execution and idempotency
 
@@ -149,6 +181,14 @@ The stored execution result includes the GitHub provider, repository, issue numb
 python -m agent_lab.app
 ```
 
+The standalone MCP smoke test can also be run with:
+
+```powershell
+python scripts/mcp_test.py
+```
+
+Both entry points initialize the database before starting the MCP-backed investigation path.
+
 ## Data storage
 
-Workflow runs, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL. `executed_actions` stores the request and the real GitHub issue result, while the same idempotency marker is also embedded in the GitHub issue for external reconciliation.
+Workflow runs, customer records, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL. `customers` is the investigator's persistent read source; `executed_actions` stores approved write results and their GitHub reconciliation metadata.

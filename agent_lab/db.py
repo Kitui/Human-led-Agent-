@@ -6,7 +6,7 @@ import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from .db_models import Base, TenantORM, TenantSettingsORM, UserORM
+from .db_models import Base, CustomerORM, TenantORM, TenantSettingsORM, UserORM
 from .tenant_settings import DEFAULT_SETTINGS
 
 DATABASE_URL = os.getenv(
@@ -26,6 +26,10 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # Keep the demo usable on existing databases as well as fresh installs:
+    # create_all adds the new customers table and this seed fills only missing
+    # reference rows without overwriting customer data already persisted.
+    await seed_default_customers()
 
 
 # Learning/demo accounts only, seeded once into the real `users` table.
@@ -66,6 +70,48 @@ async def seed_default_tenants() -> None:
         for slug, environment in DEFAULT_TENANTS:
             session.add(TenantORM(slug=slug, environment=environment, is_active=True, created_at=now))
         await session.commit()
+
+
+DEFAULT_CUSTOMERS = [
+    {
+        "customer_id": "tenant_red:acme",
+        "tenant_id": "tenant_red",
+        "name": "ACME",
+        "normalized_name": "ACME",
+        "plan": "Enterprise",
+        "account_status": "active",
+        "renewal_value": 120000,
+        "renewal_status": "blocked",
+        "billing_status": "invoice_dispute",
+    },
+    {
+        "customer_id": "tenant_green:greenmart",
+        "tenant_id": "tenant_green",
+        "name": "GreenMart",
+        "normalized_name": "GREENMART",
+        "plan": "Business",
+        "account_status": "active",
+        "renewal_value": 25000,
+        "renewal_status": "normal",
+        "billing_status": "clear",
+    },
+]
+
+
+async def seed_default_customers() -> None:
+    """Seed only missing demo customer rows; never overwrite persisted data."""
+
+    async with async_session_maker() as session:
+        now = datetime.now(timezone.utc)
+        changed = False
+        for values in DEFAULT_CUSTOMERS:
+            existing = await session.get(CustomerORM, values["customer_id"])
+            if existing is not None:
+                continue
+            session.add(CustomerORM(**values, created_at=now, updated_at=now))
+            changed = True
+        if changed:
+            await session.commit()
 
 
 async def seed_default_tenant_settings() -> None:

@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 import sys
 import time
 import uuid
@@ -271,6 +272,10 @@ async def investigate_issue(
             params={
                 "command": sys.executable,
                 "args": [str(current_dir / "mcp_server.py")],
+                # MCP stdio uses a restricted default child environment. Pass
+                # our runtime environment explicitly so DATABASE_URL and other
+                # deployment configuration reach the database-backed MCP tool.
+                "env": os.environ.copy(),
             },
         ) as mcp_server:
             instructions = resolve_investigator_instructions(settings)
