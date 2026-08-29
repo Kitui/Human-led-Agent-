@@ -108,6 +108,36 @@ export function statusBadge(status) {
   return `<span class="badge badge-status-${s}">${escapeHtml((status || "").toUpperCase())}</span>`;
 }
 
+/* Turns a run's real MCP tool-call results into readable evidence bullets.
+ * Shared by approvals.js and action-points.js so both pages' "Evidence"
+ * sections parse trace events identically instead of drifting apart. */
+export function deriveEvidence(run) {
+  const bullets = [];
+  (run.trace || []).forEach((e) => {
+    if (e.kind !== "mcp" || !e.detail || !/result received/.test(e.label)) return;
+    const sourceLabel = e.label.replace(" result received", "");
+    try {
+      const parsed = JSON.parse(e.detail);
+      if (parsed.found && parsed.customer) {
+        const c = parsed.customer;
+        bullets.push(
+          `${sourceLabel}: ${c.name} — ${c.plan} plan, account ${c.account_status}, billing ${c.billing_status}, renewal ${c.renewal_status}` +
+          (c.renewal_value != null ? ` ($${Number(c.renewal_value).toLocaleString()})` : "")
+        );
+      } else if (parsed.created) {
+        bullets.push(`${sourceLabel}: task ${parsed.task_id} created for ${parsed.customer} (${parsed.team})`);
+      } else if (parsed.error) {
+        bullets.push(`${sourceLabel}: ${parsed.error}`);
+      } else {
+        bullets.push(`${sourceLabel}: ${e.detail.slice(0, 140)}`);
+      }
+    } catch (_) {
+      bullets.push(`${sourceLabel}: ${e.detail.slice(0, 140)}`);
+    }
+  });
+  return bullets;
+}
+
 export function traceIconClass(kind) {
   return { guardrail: "success", mcp: "", execution: "warn", error: "danger", client: "" }[kind] || "";
 }
