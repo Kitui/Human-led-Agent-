@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -47,6 +47,32 @@ class ExecutedActionORM(Base):
     request: Mapped[dict] = mapped_column(JSONB)
     result: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class CustomerORM(Base):
+    """Tenant-owned customer record exposed to agents through MCP.
+
+    `normalized_name` gives the service a deterministic lookup key while the
+    original `name` preserves display casing. The unique constraint allows the
+    same customer name to exist in different tenants without mixing records.
+    """
+
+    __tablename__ = "customers"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "normalized_name", name="uq_customer_tenant_name"),
+    )
+
+    customer_id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+    name: Mapped[str] = mapped_column(String)
+    normalized_name: Mapped[str] = mapped_column(String, index=True)
+    plan: Mapped[str] = mapped_column(String)
+    account_status: Mapped[str] = mapped_column(String)
+    renewal_value: Mapped[int] = mapped_column(Integer)
+    renewal_status: Mapped[str] = mapped_column(String)
+    billing_status: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class EvalSuiteRunORM(Base):
