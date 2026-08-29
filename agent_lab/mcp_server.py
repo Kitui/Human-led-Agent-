@@ -1,7 +1,17 @@
+import sys
+from pathlib import Path
+
 from mcp.server import MCPServer
 
-from .customers import lookup_customer
-from .db import async_session_maker
+
+# workflow.py launches this file directly as a stdio child process. Add the
+# repository root so package imports work the same way they do under `-m`.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from agent_lab.customers import lookup_customer
+from agent_lab.db import async_session_maker
 
 
 mcp = MCPServer("Customer Operations")
