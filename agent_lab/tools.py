@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from agents import function_tool
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -61,7 +63,7 @@ async def _get_or_create_task(
             tool_name="create_task",
             request=request,
             result=result,
-            created_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
     )
 
