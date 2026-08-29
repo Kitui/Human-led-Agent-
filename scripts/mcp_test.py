@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -28,6 +29,7 @@ async def main():
             "args": [
                 str(mcp_server_path),
             ],
+            "env": os.environ.copy(),
         },
     ) as server:
 
