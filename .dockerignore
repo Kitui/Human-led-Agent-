@@ -1,0 +1,30 @@
+.git
+.github
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+.env
+.env.*
+!.env.example
+
+*.log
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db
+
+# Runtime image copies only agent_lab/, frontend/, and requirements.lock.
+# Keep development/test material out of the Docker build context as well.
+tests
+docs
+evals
+scripts
+*.md
+LICENSE

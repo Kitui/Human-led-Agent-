@@ -40,6 +40,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build production container
+        run: docker build --tag human-led-agent:ci .
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
