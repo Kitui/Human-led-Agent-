@@ -203,7 +203,7 @@ function renderEvalsScoreChart(runs) {
           grid: { display: false },
           ticks: { color: textFaint, font: { size: 10.5 }, autoSkip: false, maxRotation: 60, minRotation: 0 },
         },
-        y: { min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` }, grid: { color: border } },
+        y: { min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: 10, callback: (v) => `${v}%` }, grid: { color: border } },
       },
     },
   });
@@ -224,7 +224,7 @@ function renderPassFailBarChart(canvasEl, cats, names, { horizontal = true } = {
   const danger = cssVar("--danger", "#DC2626");
   const textFaint = cssVar("--text-faint", "#9CA3AF");
 
-  const pctScale = { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` } };
+  const pctScale = { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: 10, callback: (v) => `${v}%` } };
   const labelScale = { stacked: true, ticks: { color: textFaint, font: { size: 11.5 }, autoSkip: false } };
   const valueAxisKey = horizontal ? "x" : "y";
 
