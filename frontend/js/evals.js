@@ -1,22 +1,35 @@
 /* Human-Led Agent Lab — Evals page
  *
  * Every number here comes from actually running agent_lab/eval_cases.py's
- * 3 real cases against the live investigator agent via POST /evals/run
- * (see agent_lab/evals_runner.py) — nothing is simulated. This means the
- * page starts empty until you click "Run Evals", unlike the reference
- * design's pre-populated 524-case history: this codebase has 3 real eval
- * cases, not hundreds, and no persisted run history before your first
- * click (in-memory only, like everything else in this demo).
- * "Category" here is the two real dimensions each case actually checks
- * (priority classification, approval-required decision) — not a
- * fabricated taxonomy.
+ * real cases against the live investigator agent via POST /evals/run (see
+ * agent_lab/evals_runner.py) — nothing is simulated. The page starts empty
+ * until you click "Run Evals"; run history is persisted in PostgreSQL.
+ *
+ * Don't confuse the two different "category"-shaped things here:
+ *  - Each eval case has a real topic label (EvalCaseResult.category, e.g.
+ *    "Security Guardrails", "Tenant Controls" -- see eval_cases.py). The
+ *    "Number of Test Cases" stat counts how many distinct labels appear in
+ *    the latest run.
+ *  - The "Pass / Fail by Judgment Check" chart below always has exactly
+ *    three rows -- it checks three specific, hardcoded judgment skills
+ *    every case is scored on regardless of its topic label: did the agent
+ *    pick the right priority, the right approval decision, and (where
+ *    applicable) call its tool correctly. It's deliberately named
+ *    "Judgment Check" rather than "Category" to avoid exactly the
+ *    confusion the old shared name caused.
  */
 import {
-  qs, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
+  qs, qsa, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
   showConfirmModal,
 } from "./shared.js";
 
 let evalsChartInstance = null;
+let categoryChartInstance = null;
+let realCategoryChartInstance = null;
+
+const EVALS_SUITES_PAGE_SIZE = 7;
+let evalsSuitesPage = 1;
+let currentEvalsRuns = [];
 
 async function fetchEvalRuns() {
   try {
@@ -53,6 +66,22 @@ function computeCategoryStats(runs) {
   return cats;
 }
 
+// Pass/fail per real topic label (EvalCaseResult.category, e.g. "Security
+// Guardrails" -- see eval_cases.py), using each case's own overall `passed`
+// result. Unrelated to computeCategoryStats() above, which always has
+// exactly three fixed judgment-skill rows regardless of topic.
+function computeRealCategoryStats(runs) {
+  const cats = {};
+  runs.forEach((run) => {
+    run.cases.forEach((c) => {
+      if (!cats[c.category]) cats[c.category] = { pass: 0, fail: 0 };
+      if (c.passed) cats[c.category].pass++;
+      else cats[c.category].fail++;
+    });
+  });
+  return cats;
+}
+
 function computeRegressions(runs) {
   // runs[0] is most recent (API returns newest-first). A regression is a
   // case that passed last time but fails this time.
@@ -62,10 +91,16 @@ function computeRegressions(runs) {
   return latest.cases.filter((c) => !c.passed && prevByName[c.name] && prevByName[c.name].passed);
 }
 
+function countRealCategories(run) {
+  if (!run) return 0;
+  return new Set(run.cases.map((c) => c.category)).size;
+}
+
 function renderEvalsStats(runs) {
   const latest = runs[0] || null;
   const previous = runs[1] || null;
   const regressions = computeRegressions(runs);
+  const categoryCount = countRealCategories(latest);
 
   const scoreTrend = latest && previous
     ? deltaFromYesterdayHtml(latest.score, previous.score, (n) => `${n.toFixed(1)} pts`).replace("from yesterday", "vs last run")
@@ -103,7 +138,7 @@ function renderEvalsStats(runs) {
       <div class="stat-body">
         <div class="stat-label">Number of Test Cases</div>
         <div class="stat-value">${latest ? latest.total_count : "—"}</div>
-        <span class="stat-trend flat">3 categories</span>
+        <span class="stat-trend flat">${latest ? `${categoryCount} categor${categoryCount === 1 ? "y" : "ies"}` : "Not run yet"}</span>
       </div>
     </div>
     <div class="stat-card">
@@ -130,6 +165,17 @@ function renderEvalsScoreChart(runs) {
 
   const chronological = runs.slice().reverse(); // oldest first for the chart
   container.innerHTML = `<canvas id="evals-score-canvas"></canvas>`;
+
+  // Scores tend to cluster near the top (90-100%), so a fixed 0-100 axis
+  // leaves most of the chart empty below the line. Fit the y-axis to the
+  // actual data instead: round down to the nearest 5 below the lowest
+  // score/threshold seen, with a little padding, floored at 0. A narrower
+  // range also gets a finer step so the axis still shows plenty of ticks.
+  const allValues = chronological.flatMap((r) => [r.score, r.threshold]);
+  const dataMin = Math.min(...allValues, 100);
+  const yMin = Math.max(0, Math.floor((dataMin - 5) / 5) * 5);
+  const yRange = 100 - yMin;
+  const yStepSize = yRange <= 20 ? 2 : yRange <= 50 ? 5 : 10;
 
   const primary = cssVar("--primary", "#2563EB");
   const primaryBg = cssVar("--primary-bg", "#EFF6FF");
@@ -168,8 +214,74 @@ function renderEvalsScoreChart(runs) {
       maintainAspectRatio: false,
       plugins: { legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: textFaint, font: { size: 10.5 } } },
-        y: { min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` }, grid: { color: border } },
+        x: {
+          grid: { display: false },
+          ticks: { color: textFaint, font: { size: 10.5 }, autoSkip: false, maxRotation: 60, minRotation: 0 },
+        },
+        y: { min: yMin, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: yStepSize, callback: (v) => `${v}%` }, grid: { color: border } },
+      },
+    },
+  });
+}
+
+// Shared by renderCategoryBreakdown (3 fixed judgment-skill rows, rendered
+// as a vertical stacked column chart) and renderRealCategoryBreakdown (real
+// per-case topic labels, rendered as horizontal stacked bars since there
+// can be several of them) -- same stacked pass/fail shape, different data
+// source and orientation. Returns the created Chart instance so each caller
+// can track/destroy its own.
+function renderPassFailBarChart(canvasEl, cats, names, { horizontal = true } = {}) {
+  const totals = names.map((name) => cats[name].pass + cats[name].fail);
+  const passPct = names.map((name, i) => (totals[i] ? (cats[name].pass / totals[i]) * 100 : 0));
+  const failPct = names.map((name, i) => (totals[i] ? (cats[name].fail / totals[i]) * 100 : 0));
+
+  const success = cssVar("--success", "#16A34A");
+  const danger = cssVar("--danger", "#DC2626");
+  const textFaint = cssVar("--text-faint", "#9CA3AF");
+
+  const pctScale = { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: 10, callback: (v) => `${v}%` } };
+  const labelScale = { stacked: true, ticks: { color: textFaint, font: { size: 11.5 }, autoSkip: false } };
+  const valueAxisKey = horizontal ? "x" : "y";
+
+  return new Chart(canvasEl.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: names,
+      datasets: [
+        {
+          label: "Pass",
+          data: passPct,
+          backgroundColor: success,
+          counts: names.map((name) => cats[name].pass),
+        },
+        {
+          label: "Fail",
+          data: failPct,
+          backgroundColor: danger,
+          counts: names.map((name) => cats[name].fail),
+        },
+      ],
+    },
+    options: {
+      indexAxis: horizontal ? "y" : "x",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: horizontal ? pctScale : labelScale,
+        y: horizontal ? labelScale : pctScale,
+      },
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const count = ctx.dataset.counts[ctx.dataIndex];
+              const total = totals[ctx.dataIndex];
+              const pct = ctx.parsed[valueAxisKey];
+              return `${ctx.dataset.label}: ${pct.toFixed(0)}% (${count}/${total})`;
+            },
+          },
+        },
       },
     },
   });
@@ -177,47 +289,56 @@ function renderEvalsScoreChart(runs) {
 
 function renderCategoryBreakdown(runs) {
   const container = qs("#evals-category-breakdown");
+  if (categoryChartInstance) { categoryChartInstance.destroy(); categoryChartInstance = null; }
+
   if (runs.length === 0) {
     container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
     return;
   }
   const cats = computeCategoryStats(runs);
+  const names = Object.keys(cats);
+
   let totalPass = 0, totalFail = 0;
-
-  const rows = Object.entries(cats).map(([name, c]) => {
-    const total = c.pass + c.fail;
-    const passPct = total ? (c.pass / total) * 100 : 0;
-    const failPct = total ? (c.fail / total) * 100 : 0;
-    totalPass += c.pass;
-    totalFail += c.fail;
-    return `
-      <div class="category-bar-row">
-        <div class="category-bar-head">
-          <span class="cat-name">${escapeHtml(name)}</span>
-          <span class="cat-rate">${total ? `${passPct.toFixed(0)}% (${c.pass}/${total})` : "—"}</span>
-        </div>
-        <div class="category-bar-track">
-          ${passPct > 0 ? `<div class="category-bar-seg pass" style="width:${passPct}%;"></div>` : ""}
-          ${failPct > 0 ? `<div class="category-bar-seg fail" style="width:${failPct}%;"></div>` : ""}
-        </div>
-      </div>
-    `;
-  }).join("");
-
+  names.forEach((name) => { totalPass += cats[name].pass; totalFail += cats[name].fail; });
   const grandTotal = totalPass + totalFail;
   const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
 
   container.innerHTML = `
-    <div class="category-legend">
-      <span><span class="dot pass"></span>Pass</span>
-      <span><span class="dot fail"></span>Fail</span>
-    </div>
-    ${rows}
+    <div class="chart-container"><canvas id="evals-category-canvas"></canvas></div>
     <div class="category-bar-total-row">
       <span>Total</span>
       <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
     </div>
   `;
+
+  categoryChartInstance = renderPassFailBarChart(qs("#evals-category-canvas"), cats, names, { horizontal: false });
+}
+
+function renderRealCategoryBreakdown(runs) {
+  const container = qs("#evals-real-category-breakdown");
+  if (realCategoryChartInstance) { realCategoryChartInstance.destroy(); realCategoryChartInstance = null; }
+
+  if (runs.length === 0) {
+    container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
+    return;
+  }
+  const cats = computeRealCategoryStats(runs);
+  const names = Object.keys(cats).sort();
+
+  let totalPass = 0, totalFail = 0;
+  names.forEach((name) => { totalPass += cats[name].pass; totalFail += cats[name].fail; });
+  const grandTotal = totalPass + totalFail;
+  const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
+
+  container.innerHTML = `
+    <div class="chart-container" style="min-height:${Math.max(180, names.length * 50)}px;"><canvas id="evals-real-category-canvas"></canvas></div>
+    <div class="category-bar-total-row">
+      <span>Total</span>
+      <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
+    </div>
+  `;
+
+  realCategoryChartInstance = renderPassFailBarChart(qs("#evals-real-category-canvas"), cats, names);
 }
 
 function renderEvalsSuitesTable(runs) {
@@ -226,7 +347,13 @@ function renderEvalsSuitesTable(runs) {
     container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
     return;
   }
-  const rows = runs.map((r) => {
+
+  const totalPages = Math.max(1, Math.ceil(runs.length / EVALS_SUITES_PAGE_SIZE));
+  if (evalsSuitesPage > totalPages) evalsSuitesPage = totalPages;
+  const start = (evalsSuitesPage - 1) * EVALS_SUITES_PAGE_SIZE;
+  const pageRuns = runs.slice(start, start + EVALS_SUITES_PAGE_SIZE);
+
+  const rows = pageRuns.map((r) => {
     const pct = r.total_count ? (r.passed_count / r.total_count) * 100 : 0;
     const barClass = r.result === "passed" ? "" : (pct >= 50 ? "warn" : "fail");
     return `
@@ -254,6 +381,40 @@ function renderEvalsSuitesTable(runs) {
       </table>
     </div>
   `;
+
+  renderEvalsSuitesPagination(runs.length, totalPages);
+}
+
+function renderEvalsSuitesPagination(totalCount, totalPages) {
+  const pageNumbers = [];
+  for (let p = 1; p <= totalPages; p++) pageNumbers.push(p);
+  const visible = pageNumbers.filter((p) => p === 1 || p === totalPages || Math.abs(p - evalsSuitesPage) <= 1);
+
+  let lastShown = 0;
+  const numberButtons = visible.map((p) => {
+    const gap = p - lastShown > 1 ? `<span class="page-btn" style="border:none;">…</span>` : "";
+    lastShown = p;
+    return `${gap}<button class="page-btn ${p === evalsSuitesPage ? "active" : ""}" data-page="${p}">${p}</button>`;
+  }).join("");
+
+  qs("#evals-suites-pagination").innerHTML = totalPages <= 1 ? "" : `
+    <div class="pagination-controls">
+      <button class="page-btn" id="evals-suites-page-prev" ${evalsSuitesPage <= 1 ? "disabled" : ""}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      ${numberButtons}
+      <button class="page-btn" id="evals-suites-page-next" ${evalsSuitesPage >= totalPages ? "disabled" : ""}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+  `;
+
+  if (totalPages <= 1) return;
+  qs("#evals-suites-page-prev").addEventListener("click", () => { evalsSuitesPage--; renderEvalsSuitesTable(currentEvalsRuns); });
+  qs("#evals-suites-page-next").addEventListener("click", () => { evalsSuitesPage++; renderEvalsSuitesTable(currentEvalsRuns); });
+  qsa("[data-page]", qs("#evals-suites-pagination")).forEach((btn) => {
+    btn.addEventListener("click", () => { evalsSuitesPage = Number(btn.dataset.page); renderEvalsSuitesTable(currentEvalsRuns); });
+  });
 }
 
 function renderFailedCases(runs) {
@@ -318,10 +479,12 @@ async function triggerEvalRun() {
 
 export async function renderEvalsPage() {
   const runs = await fetchEvalRuns(); // newest first
+  currentEvalsRuns = runs;
 
   renderEvalsStats(runs);
   renderEvalsScoreChart(runs);
   renderCategoryBreakdown(runs);
+  renderRealCategoryBreakdown(runs);
   renderEvalsSuitesTable(runs);
   renderFailedCases(runs);
 

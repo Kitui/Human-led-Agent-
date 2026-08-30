@@ -169,6 +169,6 @@ EVAL_CASES = [
     },
 ]
 
-# Fifteen cases means the suite can tolerate at most one isolated miss while
-# still protecting against broader regressions.
-MINIMUM_SCORE = 90.0
+# With 15 cases, 98% tolerates zero misses (14/15 = 93.3%, already below
+# this bar) -- a deliberately strict gate, not a one-miss buffer.
+MINIMUM_SCORE = 98.0
