@@ -206,11 +206,13 @@ function renderEvalsScoreChart(runs) {
   });
 }
 
-// Shared by renderCategoryBreakdown (3 fixed judgment-skill rows) and
-// renderRealCategoryBreakdown (real per-case topic labels) -- same chart
-// shape, different data source. Returns the created Chart instance so each
-// caller can track/destroy its own.
-function renderPassFailBarChart(canvasEl, cats, names) {
+// Shared by renderCategoryBreakdown (3 fixed judgment-skill rows, rendered
+// as a vertical stacked column chart) and renderRealCategoryBreakdown (real
+// per-case topic labels, rendered as horizontal stacked bars since there
+// can be several of them) -- same stacked pass/fail shape, different data
+// source and orientation. Returns the created Chart instance so each caller
+// can track/destroy its own.
+function renderPassFailBarChart(canvasEl, cats, names, { horizontal = true } = {}) {
   const totals = names.map((name) => cats[name].pass + cats[name].fail);
   const passPct = names.map((name, i) => (totals[i] ? (cats[name].pass / totals[i]) * 100 : 0));
   const failPct = names.map((name, i) => (totals[i] ? (cats[name].fail / totals[i]) * 100 : 0));
@@ -218,6 +220,10 @@ function renderPassFailBarChart(canvasEl, cats, names) {
   const success = cssVar("--success", "#16A34A");
   const danger = cssVar("--danger", "#DC2626");
   const textFaint = cssVar("--text-faint", "#9CA3AF");
+
+  const pctScale = { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` } };
+  const labelScale = { stacked: true, ticks: { color: textFaint, font: { size: 11.5 } } };
+  const valueAxisKey = horizontal ? "x" : "y";
 
   return new Chart(canvasEl.getContext("2d"), {
     type: "bar",
@@ -239,12 +245,12 @@ function renderPassFailBarChart(canvasEl, cats, names) {
       ],
     },
     options: {
-      indexAxis: "y",
+      indexAxis: horizontal ? "y" : "x",
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` } },
-        y: { stacked: true, ticks: { color: textFaint, font: { size: 11.5 } } },
+        x: horizontal ? pctScale : labelScale,
+        y: horizontal ? labelScale : pctScale,
       },
       plugins: {
         legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
@@ -253,7 +259,8 @@ function renderPassFailBarChart(canvasEl, cats, names) {
             label: (ctx) => {
               const count = ctx.dataset.counts[ctx.dataIndex];
               const total = totals[ctx.dataIndex];
-              return `${ctx.dataset.label}: ${ctx.parsed.x.toFixed(0)}% (${count}/${total})`;
+              const pct = ctx.parsed[valueAxisKey];
+              return `${ctx.dataset.label}: ${pct.toFixed(0)}% (${count}/${total})`;
             },
           },
         },
@@ -279,14 +286,14 @@ function renderCategoryBreakdown(runs) {
   const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
 
   container.innerHTML = `
-    <div class="chart-container" style="height:180px;"><canvas id="evals-category-canvas"></canvas></div>
+    <div class="chart-container"><canvas id="evals-category-canvas"></canvas></div>
     <div class="category-bar-total-row">
       <span>Total</span>
       <span>${grandPct}% (${totalPass} / ${grandTotal})</span>
     </div>
   `;
 
-  categoryChartInstance = renderPassFailBarChart(qs("#evals-category-canvas"), cats, names);
+  categoryChartInstance = renderPassFailBarChart(qs("#evals-category-canvas"), cats, names, { horizontal: false });
 }
 
 function renderRealCategoryBreakdown(runs) {
