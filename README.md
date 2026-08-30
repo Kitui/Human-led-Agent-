@@ -1,15 +1,15 @@
 # Human-Led Agent Lab — FastAPI Edition
 
-A small human-led AI orchestration lab with structured Action Points, guardrails, MCP tool access, human approval, retries, durable idempotency, tracing, evals, CI, and a FastAPI interface.
+A human-led AI orchestration lab with structured Action Points, guardrails, MCP tool access, human approval, retries, durable idempotency, tracing, evals, CI, and a FastAPI interface.
 
 ## Architecture
 
 ```text
-Client / Swagger UI
+Client / Dashboard / Swagger
        ↓
      FastAPI
        ↓
-   workflow.py  ──────────→  PostgreSQL
+   workflow.py  ──────────→ PostgreSQL
        ↓                    (runs, customers, evals,
 Guardrail                    users, tenants, settings,
        ↓                     executed actions)
@@ -39,13 +39,29 @@ The CLI still works through `agent_lab/app.py`, but both the CLI and FastAPI cal
 ## Project layout
 
 ```text
-agent_lab/       Application package (agent, API, workflow, DB, customer service, MCP, GitHub adapter, ...)
-frontend/        Static dashboard UI (plain HTML/CSS/JS), served by the API
-evals/           AI quality-gate eval suite (run in CI)
-scripts/         Standalone manual smoke-test scripts (MCP)
-tests/           Pytest unit/integration tests
-docker-compose.yml   Local PostgreSQL (pgvector/pgvector image)
+agent_lab/          Application package: agent, API, workflow, DB, MCP, tools
+frontend/           Static dashboard UI served by FastAPI
+evals/              Live AI quality-gate runner
+scripts/            Manual smoke-test utilities
+tests/              Pytest unit/integration/security tests
+docker-compose.yml  Local PostgreSQL
+requirements.txt    Exact direct dependency pins
+requirements.lock   Fully resolved CI/deployment dependency snapshot
+LICENSE              MIT license
 ```
+
+## Dependency reproducibility
+
+Direct dependencies are pinned to exact versions in `requirements.txt`. CI and deployment use `requirements.lock`, which records the full resolved Python 3.12 environment that passed the test and live-eval gate.
+
+For the most reproducible installation:
+
+```powershell
+pip install -r requirements.lock
+pip check
+```
+
+When dependencies are intentionally upgraded, update the direct pins, regenerate/review the lock, and rerun both pytest and the live eval suite before merging.
 
 ## Run locally
 
@@ -55,24 +71,47 @@ Start PostgreSQL:
 docker compose up -d
 ```
 
-Activate your virtual environment and install dependencies:
+Activate your virtual environment and install the locked dependencies:
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements.lock
 ```
 
-Create `.env` locally:
+Create `.env` locally from `.env.example`:
 
 ```text
 OPENAI_API_KEY=your_key_here
 DATABASE_URL=postgresql+asyncpg://agent_lab:agent_lab@localhost:5544/agent_lab
-JWT_SECRET_KEY=any_long_random_string
+JWT_SECRET_KEY=use_a_random_secret_at_least_32_characters
 TASK_GITHUB_TOKEN=your_fine_grained_github_token
 TASK_GITHUB_REPOSITORY=owner/repository
 TASK_GITHUB_API_URL=https://api.github.com
+
+ENABLE_DEMO_USERS=false
 ```
 
 `TASK_GITHUB_TOKEN` should be a fine-grained GitHub token with Issues read/write access to the repository configured in `TASK_GITHUB_REPOSITORY`. Never commit the real token.
+
+### Optional local/demo login accounts
+
+Known demo passwords are **not** embedded in application code and demo accounts are **disabled by default**.
+
+To intentionally enable the three learning/demo identities, set your own passwords:
+
+```text
+ENABLE_DEMO_USERS=true
+DEMO_RED_PASSWORD=choose_a_strong_password_16_chars_or_more
+DEMO_GREEN_PASSWORD=choose_a_strong_password_16_chars_or_more
+DEMO_ADMIN_PASSWORD=choose_a_strong_password_16_chars_or_more
+```
+
+The identities and grants are:
+
+- `red_user` → `tenant_red`
+- `green_user` → `tenant_green`
+- `admin_user` → both reference tenants
+
+When `ENABLE_DEMO_USERS=false`, application startup does not create those accounts and removes legacy copies of those demo usernames from an existing database. This prevents an upgraded deployment from retaining the old fixed-password accounts.
 
 Start the API:
 
@@ -80,7 +119,7 @@ Start the API:
 uvicorn agent_lab.api:app --reload
 ```
 
-The API also serves the dashboard UI:
+The API serves both the dashboard and Swagger UI:
 
 ```text
 http://127.0.0.1:8000/         Dashboard UI
@@ -99,12 +138,12 @@ http://127.0.0.1:8000/docs     Swagger UI
 
 ```json
 {
-  "username": "red_user",
-  "password": "red-pass-123"
+  "username": "your_user",
+  "password": "your_password"
 }
 ```
 
-Returns an `access_token` (JWT) and the tenants this account may act on (`tenant_ids`). Send it as `Authorization: Bearer <access_token>` on authenticated requests. Three demo accounts are seeded automatically on first startup: `red_user` / `red-pass-123` (tenant_red only), `green_user` / `green-pass-123` (tenant_green only), and `admin_user` / `admin-pass-123` (both tenants).
+Returns an `access_token` JWT and the tenants the account may act on. Send it as `Authorization: Bearer <access_token>` on authenticated requests.
 
 ### 3. Investigate
 
@@ -117,21 +156,21 @@ Returns an `access_token` (JWT) and the tenants this account may act on (`tenant
 }
 ```
 
-`tenant_id` must be one of the tenants your logged-in account is allowed to use, or the API returns `403`. Copy the returned `run_id`.
+`tenant_id` must be one of the tenants assigned to the authenticated user or the API returns `403`.
 
-The investigator's `get_customer` MCP tool no longer reads a Python dictionary. It calls `agent_lab/customers.py`, which resolves the tenant-owned record from the PostgreSQL `customers` table. The demo ACME and GreenMart rows are seeded into that table only when missing and can be changed in PostgreSQL without changing agent or MCP code.
+The investigator's `get_customer` MCP tool does not own customer data. It calls `agent_lab/customers.py`, which resolves the tenant-owned record from the PostgreSQL `customers` table.
 
-Tenant behavior remains explicit:
+Tenant behavior is explicit:
 
 - correct tenant + known customer → customer data
 - known customer owned by another tenant → `ACCESS_DENIED`
 - unknown customer → `NOT_FOUND`
 
-### 4. Approve
+### 4. Review and approve/reject
 
 `POST /runs/{run_id}/approve`
 
-Approval executes only the previously proposed Action Point. The execution agent calls `create_task`, which creates a real GitHub Issue in `TASK_GITHUB_REPOSITORY`.
+Approval executes only the previously proposed Action Point. The execution agent then calls `create_task`, which creates a real GitHub Issue in `TASK_GITHUB_REPOSITORY`.
 
 Reject with:
 
@@ -143,52 +182,49 @@ Reject with:
 
 ### 6. List runs
 
-`GET /runs` (optional `status` / `tenant_id` query filters) — used by the dashboard UI's Runs, Approvals, and Dashboard pages. Only returns runs for tenants your account can access.
+`GET /runs` supports optional `status` and `tenant_id` filters. Results are restricted to tenants the authenticated user may access.
 
 ## Customer data and MCP
 
-`agent_lab/mcp_server.py` defines the agent-facing `get_customer(customer_name, tenant_id)` tool. It owns no customer records itself. The tool opens a database session and delegates lookup to `agent_lab/customers.py`.
+`agent_lab/mcp_server.py` defines the agent-facing `get_customer(customer_name, tenant_id)` tool. The tool opens a database session and delegates lookup to `agent_lab/customers.py`.
 
-The `customers` table stores:
+The `customers` table stores tenant ownership, normalized identity, plan, account status, renewal value/status, billing status, and timestamps.
 
-- tenant ownership
-- display and normalized customer name
-- plan
-- account status
-- renewal value and status
-- billing status
-- created/updated timestamps
+A unique `(tenant_id, normalized_name)` constraint prevents duplicate customer identities inside a tenant while allowing the same customer name in separate tenants.
 
-A unique `(tenant_id, normalized_name)` constraint prevents duplicate customer identities inside a tenant while still allowing different tenants to have customers with the same name.
-
-ACME and GreenMart remain reference/demo records, but they now live in PostgreSQL and are seeded idempotently. This means the data can evolve independently of the MCP server and investigator prompt.
+ACME and GreenMart are reference/demo customer records persisted in PostgreSQL, not hardcoded MCP responses. They can therefore change without modifying agent or MCP code.
 
 ## GitHub task execution and idempotency
 
-Every approved write receives a deterministic workflow idempotency key. `create_task` first obtains a PostgreSQL advisory lock for that key and checks the local `executed_actions` table. If no local record exists, the GitHub adapter checks the target repository for an issue carrying the same hidden marker:
+Every approved write receives a deterministic workflow idempotency key. `create_task` obtains a PostgreSQL advisory lock and checks the local `executed_actions` table. If no local execution exists, the GitHub adapter reconciles against an issue carrying the same hidden marker:
 
 ```text
 <!-- human-led-agent-idempotency:<key> -->
 ```
 
-Only when neither PostgreSQL nor GitHub already contains that action does the adapter create a new issue. This protects against ordinary retries, concurrent same-key attempts, process restarts, and the case where GitHub created the issue but the HTTP response was lost before the application could persist the result.
+Only when neither PostgreSQL nor GitHub already contains that action does the adapter create a new issue. This protects against ordinary retries, concurrent same-key attempts, process restarts, and lost HTTP responses after GitHub accepted the write.
 
-The stored execution result includes the GitHub provider, repository, issue number, issue URL, task ID (`GH-<issue number>`), customer, team, priority, and idempotency key.
+## Evaluation gate
 
-## CLI
+The live suite covers operational judgment, approval policy, customer evidence, tenant isolation, prompt/credential attacks, guardrail behavior, and invalid tenants. CI keeps a 90% minimum quality gate in addition to deterministic pytest coverage.
+
+Run it manually with:
+
+```powershell
+python evals/evals.py
+```
+
+## CLI and MCP smoke test
 
 ```powershell
 python -m agent_lab.app
-```
-
-The standalone MCP smoke test can also be run with:
-
-```powershell
 python scripts/mcp_test.py
 ```
 
-Both entry points initialize the database before starting the MCP-backed investigation path.
-
 ## Data storage
 
-Workflow runs, customer records, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL. `customers` is the investigator's persistent read source; `executed_actions` stores approved write results and their GitHub reconciliation metadata.
+Workflow runs, customer records, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL. `customers` is the investigator's persistent read source; `executed_actions` stores approved write results and GitHub reconciliation metadata.
+
+## License
+
+This project is licensed under the MIT License. See `LICENSE`.
