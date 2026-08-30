@@ -1,13 +1,15 @@
-openai-agents
-pydantic
-python-dotenv
-pytest
-mcp[cli]
-fastapi
-uvicorn[standard]
-httpx
-sqlalchemy[asyncio]
-asyncpg
-bcrypt
-PyJWT
-pytest-asyncio
+# Direct application/test dependencies. Exact versions are intentionally pinned.
+# CI/deployments install requirements.lock for a fully resolved environment.
+openai-agents==0.22.0
+pydantic==2.13.5
+python-dotenv==1.2.3
+pytest==9.1.1
+mcp[cli]==2.1.1
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+httpx==0.28.1
+sqlalchemy[asyncio]==2.0.52
+asyncpg==0.31.0
+bcrypt==5.0.0
+PyJWT==2.13.0
+pytest-asyncio==1.4.0
