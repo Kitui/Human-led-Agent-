@@ -43,6 +43,32 @@ jobs:
       - name: Build production container
         run: docker build --tag human-led-agent:ci .
 
+      - name: Smoke test production container
+        run: |
+          docker run --detach \
+            --name human-led-agent-ci \
+            --network host \
+            --env PORT=18000 \
+            --env DATABASE_URL="$DATABASE_URL" \
+            --env JWT_SECRET_KEY="$JWT_SECRET_KEY" \
+            human-led-agent:ci
+
+          healthy=false
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18000/health > /dev/null; then
+              healthy=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$healthy" != "true" ]; then
+            docker logs human-led-agent-ci
+            exit 1
+          fi
+
+          docker rm --force human-led-agent-ci
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
