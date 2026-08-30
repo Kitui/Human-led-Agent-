@@ -20,6 +20,7 @@ env:
   AZURE_RESOURCE_GROUP: rg-human-led-agent-prod
   AZURE_CONTAINER_APP: human-led-agent
   ACR_NAME: humanledagentacr
+  ACR_LOGIN_SUFFIX: cvayfpbeg0b2ewem
   ACR_LOGIN_SERVER: humanledagentacr-cvayfpbeg0b2ewem.azurecr.io
   IMAGE_NAME: human-led-agent
 
@@ -67,7 +68,11 @@ jobs:
           IMAGE="$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ steps.revision.outputs.sha }}"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
-          az acr login --name "$ACR_NAME"
+          # The deploy identity intentionally has only AcrPush on ACR, not ACR
+          # control-plane management. Supplying the login suffix lets Azure CLI
+          # authenticate directly to the registry's tenant-scoped login server
+          # without requiring registry management permissions.
+          az acr login --name "$ACR_NAME" --suffix "$ACR_LOGIN_SUFFIX"
           docker build --pull --tag "$IMAGE" .
           docker push "$IMAGE"
 
