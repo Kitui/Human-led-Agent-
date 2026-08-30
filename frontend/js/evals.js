@@ -199,7 +199,10 @@ function renderEvalsScoreChart(runs) {
       maintainAspectRatio: false,
       plugins: { legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: textFaint, font: { size: 10.5 } } },
+        x: {
+          grid: { display: false },
+          ticks: { color: textFaint, font: { size: 10.5 }, autoSkip: false, maxRotation: 60, minRotation: 0 },
+        },
         y: { min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` }, grid: { color: border } },
       },
     },
@@ -222,7 +225,7 @@ function renderPassFailBarChart(canvasEl, cats, names, { horizontal = true } = {
   const textFaint = cssVar("--text-faint", "#9CA3AF");
 
   const pctScale = { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, callback: (v) => `${v}%` } };
-  const labelScale = { stacked: true, ticks: { color: textFaint, font: { size: 11.5 } } };
+  const labelScale = { stacked: true, ticks: { color: textFaint, font: { size: 11.5 }, autoSkip: false } };
   const valueAxisKey = horizontal ? "x" : "y";
 
   return new Chart(canvasEl.getContext("2d"), {
