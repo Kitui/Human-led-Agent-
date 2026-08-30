@@ -1,12 +1,12 @@
 # Render Blueprint for the WebMCP challenge deployment.
-# Free plans keep initial deployment zero-cost. Before judging, the web service
-# can be upgraded to Starter to avoid free-tier cold starts without code changes.
+# This workspace has exhausted its free allocation, so the Blueprint uses the
+# smallest paid compute plans that keep the demo always available to judges.
 
 services:
   - type: web
     name: human-led-agent
     runtime: docker
-    plan: free
+    plan: 0.5c-512mb
     region: frankfurt
     branch: main
     dockerfilePath: ./Dockerfile
@@ -14,7 +14,6 @@ services:
     healthCheckPath: /health
     autoDeployTrigger: checksPass
     numInstances: 1
-    maxShutdownDelaySeconds: 60
     envVars:
       # Use Render's direct internal Postgres URL. Do not switch this to the
       # PgBouncer connectionPoolString: transaction pooling is incompatible
@@ -49,12 +48,14 @@ services:
 
 databases:
   - name: human-led-agent-db
-    plan: free
+    plan: 0.1c-256mb
     region: frankfurt
     postgresMajorVersion: "16"
     databaseName: agent_lab
     user: agent_lab
     connectionPool: none
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false
     # The application uses Render's private network. No public database access
     # is required for the deployed service.
     ipAllowList: []
