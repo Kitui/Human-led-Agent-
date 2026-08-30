@@ -29,14 +29,23 @@ from agent_lab.db import (
 from agent_lab.db_models import Base
 
 
+# Static credentials are test fixtures only. Production/application startup
+# never imports or falls back to these values.
+TEST_DEMO_USERS = [
+    ("red_user", "red-pass-123", ["tenant_red"]),
+    ("green_user", "green-pass-123", ["tenant_green"]),
+    ("admin_user", "admin-pass-123", ["tenant_red", "tenant_green"]),
+]
+
+
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def _schema():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # CI starts a brand-new, empty Postgres and never runs the app's
-    # lifespan (that's what normally seeds demo users/tenants/customers) --
-    # seed here so tests and MCP subprocesses see the same persistent data.
-    await seed_demo_users()
+    # CI starts a brand-new, empty Postgres and never runs the app's lifespan.
+    # Seed explicit test-only identities and the same reference tenant/customer
+    # data that the application uses.
+    await seed_demo_users(TEST_DEMO_USERS)
     await seed_default_tenants()
     await seed_default_customers()
     await seed_default_tenant_settings()
