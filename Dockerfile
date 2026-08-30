@@ -26,12 +26,13 @@ USER app
 
 EXPOSE 8000
 
-# Use the platform-provided PORT when present (Render), with 8000 as the
-# portable default (local Docker / Azure Container Apps configuration).
+# Azure Container Apps will also receive an HTTP health probe in the deployment
+# configuration. This image-level check makes the container independently
+# testable before it reaches Azure.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import os, urllib.request; p=os.getenv('PORT','8000'); urllib.request.urlopen(f'http://127.0.0.1:{p}/health', timeout=3).read()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()" || exit 1
 
 # One worker is intentional for the first production deployment because the
 # current max-concurrency tracker is process-local. Horizontal scaling will be
 # enabled only after that coordination is moved to shared storage.
-CMD ["sh", "-c", "exec python -m uvicorn agent_lab.api:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["python", "-m", "uvicorn", "agent_lab.api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

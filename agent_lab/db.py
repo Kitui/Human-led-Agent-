@@ -9,29 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from .db_models import Base, CustomerORM, TenantORM, TenantSettingsORM, UserORM
 from .tenant_settings import DEFAULT_SETTINGS
 
-
-def normalize_database_url(database_url: str) -> str:
-    """Return a SQLAlchemy asyncpg-compatible PostgreSQL URL.
-
-    Render exposes managed Postgres connection strings as ``postgresql://...``
-    while this application uses SQLAlchemy's async engine with ``asyncpg``.
-    Local/CI URLs that already declare ``postgresql+asyncpg`` remain unchanged.
-    """
-
-    if database_url.startswith("postgresql+asyncpg://"):
-        return database_url
-    if database_url.startswith("postgresql://"):
-        return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    if database_url.startswith("postgres://"):
-        return database_url.replace("postgres://", "postgresql+asyncpg://", 1)
-    return database_url
-
-
-DATABASE_URL = normalize_database_url(
-    os.getenv(
-        "DATABASE_URL",
-        "postgresql+asyncpg://agent_lab:agent_lab@localhost:5544/agent_lab",
-    )
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://agent_lab:agent_lab@localhost:5544/agent_lab",
 )
 
 engine = create_async_engine(DATABASE_URL)
