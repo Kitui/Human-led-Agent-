@@ -19,13 +19,17 @@
  *    confusion the old shared name caused.
  */
 import {
-  qs, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
+  qs, qsa, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
   showConfirmModal,
 } from "./shared.js";
 
 let evalsChartInstance = null;
 let categoryChartInstance = null;
 let realCategoryChartInstance = null;
+
+const EVALS_SUITES_PAGE_SIZE = 7;
+let evalsSuitesPage = 1;
+let currentEvalsRuns = [];
 
 async function fetchEvalRuns() {
   try {
@@ -162,6 +166,17 @@ function renderEvalsScoreChart(runs) {
   const chronological = runs.slice().reverse(); // oldest first for the chart
   container.innerHTML = `<canvas id="evals-score-canvas"></canvas>`;
 
+  // Scores tend to cluster near the top (90-100%), so a fixed 0-100 axis
+  // leaves most of the chart empty below the line. Fit the y-axis to the
+  // actual data instead: round down to the nearest 5 below the lowest
+  // score/threshold seen, with a little padding, floored at 0. A narrower
+  // range also gets a finer step so the axis still shows plenty of ticks.
+  const allValues = chronological.flatMap((r) => [r.score, r.threshold]);
+  const dataMin = Math.min(...allValues, 100);
+  const yMin = Math.max(0, Math.floor((dataMin - 5) / 5) * 5);
+  const yRange = 100 - yMin;
+  const yStepSize = yRange <= 20 ? 2 : yRange <= 50 ? 5 : 10;
+
   const primary = cssVar("--primary", "#2563EB");
   const primaryBg = cssVar("--primary-bg", "#EFF6FF");
   const border = cssVar("--border", "#E5E7EB");
@@ -203,7 +218,7 @@ function renderEvalsScoreChart(runs) {
           grid: { display: false },
           ticks: { color: textFaint, font: { size: 10.5 }, autoSkip: false, maxRotation: 60, minRotation: 0 },
         },
-        y: { min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: 10, callback: (v) => `${v}%` }, grid: { color: border } },
+        y: { min: yMin, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: yStepSize, callback: (v) => `${v}%` }, grid: { color: border } },
       },
     },
   });
@@ -332,7 +347,13 @@ function renderEvalsSuitesTable(runs) {
     container.innerHTML = `<p class="empty-note">No eval runs yet.</p>`;
     return;
   }
-  const rows = runs.map((r) => {
+
+  const totalPages = Math.max(1, Math.ceil(runs.length / EVALS_SUITES_PAGE_SIZE));
+  if (evalsSuitesPage > totalPages) evalsSuitesPage = totalPages;
+  const start = (evalsSuitesPage - 1) * EVALS_SUITES_PAGE_SIZE;
+  const pageRuns = runs.slice(start, start + EVALS_SUITES_PAGE_SIZE);
+
+  const rows = pageRuns.map((r) => {
     const pct = r.total_count ? (r.passed_count / r.total_count) * 100 : 0;
     const barClass = r.result === "passed" ? "" : (pct >= 50 ? "warn" : "fail");
     return `
@@ -360,6 +381,40 @@ function renderEvalsSuitesTable(runs) {
       </table>
     </div>
   `;
+
+  renderEvalsSuitesPagination(runs.length, totalPages);
+}
+
+function renderEvalsSuitesPagination(totalCount, totalPages) {
+  const pageNumbers = [];
+  for (let p = 1; p <= totalPages; p++) pageNumbers.push(p);
+  const visible = pageNumbers.filter((p) => p === 1 || p === totalPages || Math.abs(p - evalsSuitesPage) <= 1);
+
+  let lastShown = 0;
+  const numberButtons = visible.map((p) => {
+    const gap = p - lastShown > 1 ? `<span class="page-btn" style="border:none;">…</span>` : "";
+    lastShown = p;
+    return `${gap}<button class="page-btn ${p === evalsSuitesPage ? "active" : ""}" data-page="${p}">${p}</button>`;
+  }).join("");
+
+  qs("#evals-suites-pagination").innerHTML = totalPages <= 1 ? "" : `
+    <div class="pagination-controls">
+      <button class="page-btn" id="evals-suites-page-prev" ${evalsSuitesPage <= 1 ? "disabled" : ""}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      ${numberButtons}
+      <button class="page-btn" id="evals-suites-page-next" ${evalsSuitesPage >= totalPages ? "disabled" : ""}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+  `;
+
+  if (totalPages <= 1) return;
+  qs("#evals-suites-page-prev").addEventListener("click", () => { evalsSuitesPage--; renderEvalsSuitesTable(currentEvalsRuns); });
+  qs("#evals-suites-page-next").addEventListener("click", () => { evalsSuitesPage++; renderEvalsSuitesTable(currentEvalsRuns); });
+  qsa("[data-page]", qs("#evals-suites-pagination")).forEach((btn) => {
+    btn.addEventListener("click", () => { evalsSuitesPage = Number(btn.dataset.page); renderEvalsSuitesTable(currentEvalsRuns); });
+  });
 }
 
 function renderFailedCases(runs) {
@@ -424,6 +479,7 @@ async function triggerEvalRun() {
 
 export async function renderEvalsPage() {
   const runs = await fetchEvalRuns(); // newest first
+  currentEvalsRuns = runs;
 
   renderEvalsStats(runs);
   renderEvalsScoreChart(runs);
