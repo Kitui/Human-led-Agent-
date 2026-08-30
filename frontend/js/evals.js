@@ -331,7 +331,7 @@ function renderRealCategoryBreakdown(runs) {
   const grandPct = grandTotal ? ((totalPass / grandTotal) * 100).toFixed(0) : "0";
 
   container.innerHTML = `
-    <div class="chart-container" style="height:${Math.max(180, names.length * 50)}px;"><canvas id="evals-real-category-canvas"></canvas></div>
+    <div class="chart-container" style="min-height:${Math.max(180, names.length * 50)}px;"><canvas id="evals-real-category-canvas"></canvas></div>
     <div class="category-bar-total-row">
       <span>Total</span>
       <span>${grandPct}% (${totalPass} / ${grandTotal})</span>

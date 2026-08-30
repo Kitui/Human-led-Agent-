@@ -822,14 +822,20 @@ tbody tr.row-selected { background: var(--primary-bg); }
 .settings-row .card { margin-bottom: 0; }
 @media (max-width: 1100px) { .settings-row-2col, .settings-row-3col { grid-template-columns: 1fr; } }
 
-/* The 3 Evals charts have genuinely different natural content heights
-   (the score/judgment cards have no extra footer row, the category card's
-   height scales with how many categories exist) -- default grid stretch
-   would force them all to the tallest card's height, leaving visible
-   empty space below the shorter charts' fixed-height canvases. Scoped
-   here rather than on .settings-row itself so the Settings page's own
-   rows keep their existing stretch behavior. */
-.evals-charts-row { align-items: start; }
+/* The 3 Evals charts should all be the same height. Default grid stretch
+   already makes the cards equal height, but their canvases had a fixed
+   pixel height, so any leftover space in a stretched card just showed as
+   blank area below the chart instead of the chart itself growing to fill
+   it. Make each card a flex column and let its chart area flex to fill
+   the card's real (stretched) height instead. Scoped here rather than on
+   .settings-row itself so the Settings page's own rows are unaffected. */
+.evals-charts-row .card { display: flex; flex-direction: column; }
+.evals-charts-row #evals-score-chart,
+.evals-charts-row #evals-category-breakdown,
+.evals-charts-row #evals-real-category-breakdown {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+}
+.evals-charts-row .chart-container { flex: 1; height: auto; min-height: 0; }
 
 .card-sub { margin: -6px 0 14px; font-size: 12.5px; color: var(--text-secondary); }
 .coming-soon-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--neutral-bg); color: var(--neutral-text); }
