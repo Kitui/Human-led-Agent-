@@ -1,0 +1,60 @@
+# Render Blueprint for the WebMCP challenge deployment.
+# Free plans keep initial deployment zero-cost. Before judging, the web service
+# can be upgraded to Starter to avoid free-tier cold starts without code changes.
+
+services:
+  - type: web
+    name: human-led-agent
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    maxShutdownDelaySeconds: 60
+    envVars:
+      # Use Render's direct internal Postgres URL. Do not switch this to the
+      # PgBouncer connectionPoolString: transaction pooling is incompatible
+      # with the advisory lock used by the durable idempotency write path.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: human-led-agent-db
+          property: connectionString
+
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+      - key: TASK_GITHUB_TOKEN
+        sync: false
+      - key: TASK_GITHUB_REPOSITORY
+        value: Kitui/Human-led-Agent-
+      - key: TASK_GITHUB_API_URL
+        value: https://api.github.com
+
+      # Explicitly enabled for the challenge demo. Passwords are supplied once
+      # through Render's secret prompt and are never committed to the repo.
+      - key: ENABLE_DEMO_USERS
+        value: "true"
+      - key: DEMO_RED_PASSWORD
+        sync: false
+      - key: DEMO_GREEN_PASSWORD
+        sync: false
+      - key: DEMO_ADMIN_PASSWORD
+        sync: false
+
+databases:
+  - name: human-led-agent-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"
+    databaseName: agent_lab
+    user: agent_lab
+    connectionPool: none
+    # The application uses Render's private network. No public database access
+    # is required for the deployed service.
+    ipAllowList: []
