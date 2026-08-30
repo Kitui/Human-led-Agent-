@@ -17,7 +17,7 @@ from .agent import build_execution_agent, build_investigator_agent, resolve_inve
 from .db_models import WorkflowRunORM, workflow_run_to_columns
 from .execution import execute_with_retry
 from .guardrails import validate_input
-from .models import RunStatus, TenantSettings, TraceEvent, WorkflowRun
+from .models import ActionPoint, RunStatus, TenantSettings, TraceEvent, WorkflowRun
 from .tenant_settings import get_or_create_settings
 from .tenants import is_valid_active_tenant
 
@@ -155,6 +155,16 @@ def _tool_call_trace_events(new_items) -> list[TraceEvent]:
             )
 
     return events
+
+
+def _enforce_critical_requires_approval(action_point: ActionPoint) -> None:
+    """Deterministic safety net, not left to the model's judgment: a
+    critical-priority action point always requires human approval,
+    regardless of what the agent itself decided. Eval history showed the
+    model occasionally judging a critical case as not needing approval --
+    this invariant is too important to depend on prompt adherence alone."""
+    if action_point.priority == "critical":
+        action_point.requires_human_approval = True
 
 
 def _accumulate_metrics(run: WorkflowRun, result) -> None:
@@ -305,6 +315,7 @@ you MUST pass the current tenant_id exactly.
         _accumulate_metrics(run, result)
 
         run.action_point = result.final_output
+        _enforce_critical_requires_approval(run.action_point)
         run.duration_seconds = time.perf_counter() - started
 
         if run.action_point.requires_human_approval:
