@@ -11,12 +11,17 @@ from .models import AuthenticatedUser
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE = timedelta(hours=1)
+MIN_JWT_SECRET_BYTES = 32
 
 
 def _secret_key() -> str:
     secret_key = os.getenv("JWT_SECRET_KEY")
     if not secret_key:
         raise RuntimeError("JWT_SECRET_KEY environment variable is not set.")
+    if len(secret_key.encode("utf-8")) < MIN_JWT_SECRET_BYTES:
+        raise RuntimeError(
+            f"JWT_SECRET_KEY must be at least {MIN_JWT_SECRET_BYTES} bytes for HS256."
+        )
     return secret_key
 
 
