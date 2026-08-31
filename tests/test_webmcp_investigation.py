@@ -8,7 +8,8 @@ async def test_clean_investigation_workspace_url(client):
     response = await client.get("/investigation/", follow_redirects=True)
 
     assert response.status_code == 200
-    assert "Investigation Hub" in response.text
+    assert "Investigation Workspace" in response.text
+    assert "CorrelAct" in response.text
     assert "/investigation.css" in response.text
     assert "/js/investigation.js" in response.text
     assert "get_case" in response.text
@@ -17,7 +18,7 @@ async def test_clean_investigation_workspace_url(client):
     assert "submit_action_point" in response.text
 
 
-def test_investigation_hub_registers_all_four_webmcp_tools():
+def test_investigation_workspace_registers_all_four_webmcp_tools():
     source = (ROOT / "frontend" / "js" / "investigation.js").read_text(encoding="utf-8")
 
     assert "registerSupportWebMcpTools" in source
