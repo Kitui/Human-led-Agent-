@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import Header, HTTPException
+from fastapi import Cookie, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db_models import UserORM
@@ -12,6 +12,7 @@ from .models import AuthenticatedUser
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE = timedelta(hours=1)
 MIN_JWT_SECRET_BYTES = 32
+SESSION_COOKIE_NAME = "hlal_session"
 
 
 def _secret_key() -> str:
@@ -59,9 +60,25 @@ def decode_access_token(token: str) -> AuthenticatedUser:
     return AuthenticatedUser(username=payload["sub"], tenant_ids=payload["tenant_ids"])
 
 
-async def get_current_user(authorization: str | None = Header(default=None)) -> AuthenticatedUser:
-    if authorization is None or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
+async def get_current_user(
+    authorization: str | None = Header(default=None),
+    session_token: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+) -> AuthenticatedUser:
+    """Authenticate API clients with Bearer tokens and browser pages with the
+    shared HttpOnly session cookie.
 
-    token = authorization.removeprefix("Bearer ").strip()
+    Bearer auth remains supported for CLI/API clients. Browser workspaces can
+    now share the same login across tabs and pages without copying credentials
+    between them.
+    """
+
+    token: str | None = None
+    if authorization is not None and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+    elif session_token:
+        token = session_token.strip()
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing or invalid authentication.")
+
     return decode_access_token(token)

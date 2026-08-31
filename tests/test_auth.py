@@ -11,6 +11,50 @@ async def test_login_succeeds_with_correct_credentials(client):
     assert body["access_token"]
 
 
+async def test_login_sets_shared_browser_cookie(client):
+    response = await client.post(
+        "/auth/login",
+        json={"username": "red_user", "password": "red-pass-123"},
+    )
+
+    cookie = response.headers.get("set-cookie", "")
+    assert "hlal_session=" in cookie
+    assert "HttpOnly" in cookie
+    assert "SameSite=lax" in cookie
+    assert "Path=/" in cookie
+
+
+async def test_browser_session_can_restore_without_bearer_header(client):
+    login_response = await client.post(
+        "/auth/login",
+        json={"username": "red_user", "password": "red-pass-123"},
+    )
+    assert login_response.status_code == 200
+
+    response = await client.get("/auth/session")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["username"] == "red_user"
+    assert body["tenant_ids"] == ["tenant_red"]
+    assert body["access_token"]
+
+
+async def test_logout_clears_shared_browser_cookie(client):
+    login_response = await client.post(
+        "/auth/login",
+        json={"username": "red_user", "password": "red-pass-123"},
+    )
+    assert login_response.status_code == 200
+
+    logout_response = await client.post("/auth/logout")
+    assert logout_response.status_code == 200
+    assert logout_response.json()["status"] == "ok"
+
+    response = await client.get("/auth/session")
+    assert response.status_code == 401
+
+
 async def test_login_fails_with_wrong_password(client):
     response = await client.post(
         "/auth/login",

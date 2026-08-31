@@ -10,7 +10,7 @@ import { renderEvalsPage } from "./evals.js";
 import { renderSettingsPage } from "./settings.js";
 import {
   hasValidSession, showLoginScreen, hideLoginScreen, initLoginForm,
-  currentTenantIds, currentUsername, logout,
+  currentTenantIds, currentUsername, logout, restoreBrowserSession,
 } from "./auth.js";
 
 /* ---------------- routing / nav ---------------- */
@@ -103,9 +103,15 @@ async function startApp() {
 }
 
 /* ---------------- boot ---------------- */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   initMisc();
   initLoginForm(startApp);
+
+  // Always attempt shared-cookie restoration. Existing pre-fix tabs can use
+  // their sessionStorage bearer once to establish the shared cookie; new tabs
+  // can then restore directly from that cookie.
+  await restoreBrowserSession();
+
   if (hasValidSession()) {
     hideLoginScreen();
     startApp();
