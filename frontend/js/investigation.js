@@ -3,20 +3,21 @@ import { restoreBrowserSession } from "./auth.js";
 import { fetchCustomer, registerCrmWebMcpTools } from "./webmcp/crm-tools.js";
 import { fetchInvoice, registerBillingWebMcpTools } from "./webmcp/billing-tools.js";
 import { fetchCase, registerSupportWebMcpTools } from "./webmcp/support-tools.js";
+import { registerActionPointWebMcpTool } from "./webmcp/action-point-tools.js";
 
 const $ = (selector) => document.querySelector(selector);
 
 function setWebMcpStatus({ supported, registeredCount }) {
   const el = $("#webmcp-status");
   el.classList.remove("ready", "unsupported");
-  if (supported && registeredCount === 3) {
+  if (supported && registeredCount === 4) {
     el.classList.add("ready");
-    el.querySelector("span:last-child").textContent = "3 WebMCP tools registered";
+    el.querySelector("span:last-child").textContent = "4 WebMCP tools registered";
     return;
   }
   el.classList.add("unsupported");
   el.querySelector("span:last-child").textContent = supported
-    ? `${registeredCount}/3 WebMCP tools registered`
+    ? `${registeredCount}/4 WebMCP tools registered`
     : "WebMCP unavailable in this browser";
 }
 
@@ -85,6 +86,7 @@ async function registerInvestigationTools() {
     registerSupportWebMcpTools(),
     registerCrmWebMcpTools(),
     registerBillingWebMcpTools(),
+    registerActionPointWebMcpTool(),
   ]);
 
   return {
