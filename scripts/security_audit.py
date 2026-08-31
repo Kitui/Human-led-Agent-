@@ -1,8 +1,9 @@
-"""Fail CI when committed repository history contains likely credentials.
+"""Audit committed repository history before CorrelAct is made public.
 
-This intentionally scans *git blobs across all reachable history*, not only the
-current working tree, because CorrelAct will be made public for the WebMCP
-Challenge. Findings report only the rule and path; matched values are never
+The audit scans *git blobs across all reachable history*, not only the current
+working tree. High-confidence credentials are hard failures. Historical
+learning/demo passwords are surfaced as warnings because current startup code
+removes or rotates those legacy demo identities; matched values are never
 printed into CI logs.
 """
 from __future__ import annotations
@@ -40,11 +41,12 @@ DB_URL_RE = re.compile(
     r"(?P<user>[^\s:/]+):(?P<password>[^\s@]+)@(?P<host>[^\s/:]+)"
 )
 
-# Generic assignments are deliberately same-line only. `\s*` is NOT used
-# around the separator because it can consume a newline, turning an empty
-# `.env` variable into a false match against the next line.
+# Generic assignments are deliberately same-line and suffix anchored. This
+# catches `JWT_SECRET_KEY=...` or `GITHUB_TOKEN=...` while avoiding identifiers
+# such as `TOKEN_KEY = "localStorage-name"`, which name a storage slot rather
+# than contain a token.
 GENERIC_ASSIGNMENT_RE = re.compile(
-    r"(?im)^[ \t]*(?P<name>[A-Z0-9_.-]*(?:PASSWORD|SECRET|TOKEN|API[_-]?KEY)[A-Z0-9_.-]*)"
+    r"(?im)^[ \t]*(?P<name>[A-Z0-9_.-]*(?:PASSWORD|SECRET|TOKEN|API[_-]?KEY|SECRET[_-]?KEY))"
     r"[ \t]*[:=][ \t]*[\"']?(?P<value>[^\s\"'#]{12,})"
 )
 
@@ -66,7 +68,6 @@ SAFE_GENERIC_PREFIXES = (
 SAFE_LOCAL_PASSWORDS = {"agent_lab", "postgres", "password", "pass"}
 SAFE_LOCAL_HOSTS = {"localhost", "127.0.0.1", "postgres", "db", "internal-host"}
 
-# Expressions below are code/config indirection rather than literal secrets.
 SAFE_EXPRESSION_MARKERS = (
     "os.getenv(",
     "os.environ",
@@ -123,43 +124,53 @@ def looks_like_safe_expression(value: str) -> bool:
     return False
 
 
-def scan_blob(object_id: str, paths: set[str]) -> list[tuple[str, str]]:
-    findings: list[tuple[str, str]] = []
+def is_demo_password_name(name: str) -> bool:
+    normalized = name.upper().replace("-", "_").replace(".", "_")
+    return normalized.startswith("DEMO_") and normalized.endswith("_PASSWORD")
+
+
+def scan_blob(object_id: str, paths: set[str]) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    failures: list[tuple[str, str]] = []
+    warnings: list[tuple[str, str]] = []
     size = int(git("cat-file", "-s", object_id).strip())
     if size == 0:
-        return findings
+        return failures, warnings
 
     # A committed sensitive filename is itself a release risk even if its
     # content no longer matches a known token format.
     for path in paths:
         if is_sensitive_path(path):
-            findings.append(("sensitive_file_in_history", path))
+            failures.append(("sensitive_file_in_history", path))
 
     if size > MAX_BLOB_BYTES:
-        return findings
+        return failures, warnings
 
     raw = git("cat-file", "blob", object_id, text=False)
     if b"\x00" in raw:
-        return findings
+        return failures, warnings
     text = raw.decode("utf-8", errors="ignore")
 
     for rule, pattern in PATTERNS:
         if pattern.search(text):
-            findings.extend((rule, path) for path in paths)
+            failures.extend((rule, path) for path in paths)
 
     for match in DB_URL_RE.finditer(text):
         host = match.group("host").lower()
         password = match.group("password")
         if host not in SAFE_LOCAL_HOSTS and password.lower() not in SAFE_LOCAL_PASSWORDS:
-            findings.extend(("database_url_with_literal_password", path) for path in paths)
+            failures.extend(("database_url_with_literal_password", path) for path in paths)
 
     for match in GENERIC_ASSIGNMENT_RE.finditer(text):
+        name = match.group("name")
         value = match.group("value")
         if looks_like_safe_expression(value):
             continue
-        findings.extend(("literal_secret_assignment", path) for path in paths)
+        if is_demo_password_name(name):
+            warnings.extend(("historical_demo_password_literal", path) for path in paths)
+            continue
+        failures.extend(("literal_secret_assignment", path) for path in paths)
 
-    return findings
+    return failures, warnings
 
 
 def main() -> int:
@@ -169,14 +180,23 @@ def main() -> int:
         print(f"Security audit could not inspect git history: {exc}", file=sys.stderr)
         return 2
 
-    findings: set[tuple[str, str]] = set()
+    failures: set[tuple[str, str]] = set()
+    warnings: set[tuple[str, str]] = set()
     for object_id, paths in blobs.items():
-        findings.update(scan_blob(object_id, paths))
+        blob_failures, blob_warnings = scan_blob(object_id, paths)
+        failures.update(blob_failures)
+        warnings.update(blob_warnings)
 
-    if findings:
+    if warnings:
+        print("Public-release security audit warnings (values redacted):")
+        for rule, path in sorted(warnings):
+            print(f"- {rule}: {path}")
+        print("These are retired learning/demo credentials; current startup code must keep rotating or removing them.")
+
+    if failures:
         print("Public-release security audit FAILED.")
         print("Potential committed credential material was found. Values are intentionally redacted.")
-        for rule, path in sorted(findings):
+        for rule, path in sorted(failures):
             print(f"- {rule}: {path}")
         print("Rotate any affected credential before making the repository public, then remove it from git history.")
         return 1
