@@ -8,7 +8,7 @@ async def test_customer_lookup_reads_persisted_acme_record(db_session):
     result = await lookup_customer(
         db_session,
         customer_name="acme",
-        tenant_id="tenant_red",
+        tenant_id="NorthStar",
     )
 
     assert result.found is True
@@ -20,11 +20,11 @@ async def test_customer_lookup_reads_persisted_acme_record(db_session):
     assert result.customer["billing_status"] == "invoice_dispute"
 
 
-async def test_cross_tenant_customer_lookup_returns_access_denied(db_session):
+async def test_cross_organization_customer_lookup_returns_access_denied(db_session):
     result = await lookup_customer(
         db_session,
         customer_name="GreenMart",
-        tenant_id="tenant_red",
+        tenant_id="NorthStar",
     )
 
     assert result.to_dict() == {"found": False, "error": "ACCESS_DENIED"}
@@ -34,7 +34,7 @@ async def test_unknown_customer_lookup_returns_not_found(db_session):
     result = await lookup_customer(
         db_session,
         customer_name="Unknown Customer",
-        tenant_id="tenant_red",
+        tenant_id="NorthStar",
     )
 
     assert result.to_dict() == {"found": False, "error": "NOT_FOUND"}
@@ -43,7 +43,7 @@ async def test_unknown_customer_lookup_returns_not_found(db_session):
 async def test_customer_lookup_reflects_database_changes_not_hardcoded_data(db_session):
     acme = await db_session.scalar(
         select(CustomerORM).where(
-            CustomerORM.tenant_id == "tenant_red",
+            CustomerORM.tenant_id == "NorthStar",
             CustomerORM.normalized_name == "ACME",
         )
     )
@@ -56,7 +56,7 @@ async def test_customer_lookup_reflects_database_changes_not_hardcoded_data(db_s
     result = await lookup_customer(
         db_session,
         customer_name="  Acme  ",
-        tenant_id="tenant_red",
+        tenant_id="NorthStar",
     )
 
     assert result.found is True
