@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from .auth import authenticate_user, create_access_token, get_current_user
+from .customers import lookup_customer
 from .db import get_db, init_db, seed_default_tenant_settings, seed_default_tenants, seed_demo_users
 from .evals_runner import list_eval_runs, run_eval_suite
 from .models import AuthenticatedUser, EvalSuiteRun, LoginResponse, RunStatus, Tenant, TenantSettings, WorkflowRun
@@ -118,6 +119,34 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)) -> Lo
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password.")
     return LoginResponse(access_token=create_access_token(user), tenant_ids=user.tenant_ids)
+
+
+@app.get("/crm/customers/{customer_name}")
+async def read_crm_customer(
+    customer_name: str,
+    tenant_id: str = Query(..., min_length=1),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Read-only CRM surface used by the human UI and WebMCP get_customer tool."""
+    if tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+    if not await is_valid_active_tenant(db, tenant_id):
+        raise HTTPException(status_code=400, detail="Invalid tenant.")
+
+    result = await lookup_customer(
+        db,
+        customer_name=customer_name,
+        tenant_id=tenant_id,
+    )
+    if result.found:
+        return result.to_dict()
+    if result.error == "ACCESS_DENIED":
+        raise HTTPException(
+            status_code=403,
+            detail="Customer is not available in this tenant.",
+        )
+    raise HTTPException(status_code=404, detail="Customer not found.")
 
 
 @app.post("/investigate", response_model=WorkflowRun)
@@ -231,10 +260,11 @@ async def run_evals(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> EvalSuiteRun:
-    """Actually runs the real eval suite against the live investigator agent
-    (3 real /investigate calls) and records the result. Not triggered
-    automatically — only when a client explicitly calls this, since each
-    call has a real OpenAI API cost."""
+    """Run the real live eval suite and persist its score history.
+
+    This is not triggered automatically from the UI because every suite run
+    makes real model calls and therefore has a real OpenAI API cost.
+    """
     return await run_eval_suite(db)
 
 
