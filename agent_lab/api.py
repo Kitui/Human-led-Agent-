@@ -1,4 +1,6 @@
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -20,8 +22,19 @@ from .auth import (
 )
 from .customers import lookup_customer
 from .db import get_db, init_db, seed_default_tenant_settings, seed_default_tenants, seed_demo_users
+from .db_models import WorkflowRunORM, workflow_run_to_columns
 from .evals_runner import list_eval_runs, run_eval_suite
-from .models import AuthenticatedUser, EvalSuiteRun, LoginResponse, RunStatus, Tenant, TenantSettings, WorkflowRun
+from .models import (
+    ActionPoint,
+    AuthenticatedUser,
+    EvalSuiteRun,
+    LoginResponse,
+    RunStatus,
+    Tenant,
+    TenantSettings,
+    TraceEvent,
+    WorkflowRun,
+)
 from .tenant_settings import get_or_create_settings, update_settings
 from .tenants import (
     DuplicateTenantError,
@@ -80,6 +93,25 @@ class InvestigationRequest(BaseModel):
             "ACME says their invoice amount is wrong and their renewal is blocked."
         ],
     )
+
+
+class WebMcpEvidenceRequest(BaseModel):
+    source: Literal["support", "crm", "billing"]
+    reference: str = Field(min_length=1, max_length=120)
+    finding: str = Field(min_length=1, max_length=700)
+
+
+class WebMcpActionPointRequest(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=60)
+    issue: str = Field(min_length=1, max_length=2000)
+    title: str = Field(min_length=1, max_length=200)
+    issue_type: str = Field(min_length=1, max_length=120)
+    summary: str = Field(min_length=1, max_length=2000)
+    priority: Literal["low", "medium", "high", "critical"]
+    recommended_action: str = Field(min_length=1, max_length=2000)
+    confidence: float = Field(ge=0.0, le=1.0)
+    target_team: str = Field(min_length=1, max_length=120)
+    evidence: list[WebMcpEvidenceRequest] = Field(min_length=1, max_length=8)
 
 
 class ReviewDecisionRequest(BaseModel):
@@ -216,6 +248,70 @@ async def read_crm_customer(
             detail="Customer is not available in this tenant.",
         )
     raise HTTPException(status_code=404, detail="Customer not found.")
+
+
+@app.post("/webmcp/action-points", response_model=WorkflowRun)
+async def submit_webmcp_action_point(
+    request: WebMcpActionPointRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowRun:
+    """Persist a browser-agent proposal for human review without executing it."""
+    tenant_id = request.tenant_id.strip()
+    if not await is_valid_active_tenant(db, tenant_id):
+        raise HTTPException(status_code=400, detail="Invalid tenant.")
+    if tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
+    settings = await get_or_create_settings(db, tenant_id)
+    now = datetime.now(timezone.utc)
+    action_point = ActionPoint(
+        title=request.title.strip(),
+        issue_type=request.issue_type.strip(),
+        summary=request.summary.strip(),
+        priority=request.priority,
+        recommended_action=request.recommended_action.strip(),
+        confidence=request.confidence,
+        requires_human_approval=True,
+        target_team=request.target_team.strip(),
+    )
+
+    trace = [
+        TraceEvent(
+            timestamp=now,
+            kind="execution",
+            label="WebMCP Action Point submitted",
+            detail="Browser agent proposal persisted for human review. No external action was executed.",
+            tag="HUMAN_REVIEW",
+        )
+    ]
+    trace.extend(
+        TraceEvent(
+            timestamp=now,
+            kind="mcp",
+            label=f"WebMCP {evidence.source} evidence attached",
+            detail=f"{evidence.reference}: {evidence.finding}",
+            tag="EVIDENCE",
+        )
+        for evidence in request.evidence
+    )
+
+    run = WorkflowRun(
+        run_id=str(uuid.uuid4()),
+        tenant_id=tenant_id,
+        issue=request.issue.strip(),
+        status=RunStatus.AWAITING_APPROVAL,
+        step_count=1,
+        max_steps=settings.max_steps,
+        action_point=action_point,
+        trace=trace,
+        created_at=now,
+        updated_at=now,
+    )
+
+    db.add(WorkflowRunORM(**workflow_run_to_columns(run)))
+    await db.commit()
+    return run
 
 
 @app.post("/investigate", response_model=WorkflowRun)
