@@ -52,7 +52,7 @@
         </div>
 
         <form id="customer-form">
-          <label for="tenant-select">Tenant</label>
+          <label for="tenant-select">Organization</label>
           <select id="tenant-select" required></select>
 
           <label for="customer-name">Customer name</label>
@@ -71,11 +71,12 @@
         <code>get_customer</code>
         <p class="muted">
           The browser advertises this function to a WebMCP-aware agent. The tool accepts
-          <strong>customer_name</strong> and <strong>tenant_id</strong>, then calls the secured CRM API.
+          <strong>customer_name</strong> and the internal compatibility field <strong>tenant_id</strong>,
+          then calls the secured CRM API.
         </p>
         <div class="scope-row"><span>Mode</span><strong>Read only</strong></div>
         <div class="scope-row"><span>Auth</span><strong>Required</strong></div>
-        <div class="scope-row"><span>Tenant boundary</span><strong>Enforced</strong></div>
+        <div class="scope-row"><span>Organization boundary</span><strong>Enforced</strong></div>
       </div>
     </section>
 
@@ -88,7 +89,7 @@
         <span class="pill neutral" id="result-plan">—</span>
       </div>
       <div class="details-grid">
-        <div><span>Tenant</span><strong id="result-tenant">—</strong></div>
+        <div><span>Organization</span><strong id="result-tenant">—</strong></div>
         <div><span>Account status</span><strong id="result-account">—</strong></div>
         <div><span>Billing status</span><strong id="result-billing">—</strong></div>
         <div><span>Renewal status</span><strong id="result-renewal">—</strong></div>
