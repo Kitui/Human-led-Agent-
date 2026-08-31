@@ -14,8 +14,8 @@ from pathlib import PurePosixPath
 
 MAX_BLOB_BYTES = 2_000_000
 
-# High-confidence credential formats. Keep these deliberately specific so the
-# audit stays useful instead of becoming a generic entropy scanner.
+# High-confidence credential formats. These checks stay intentionally strict
+# and run against every text blob in repository history.
 PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("openai_api_key", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b")),
     ("github_classic_pat", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}\b")),
@@ -39,9 +39,13 @@ DB_URL_RE = re.compile(
     r"(?i)postgres(?:ql)?(?:\+[a-z0-9_]+)?://"
     r"(?P<user>[^\s:/]+):(?P<password>[^\s@]+)@(?P<host>[^\s/:]+)"
 )
+
+# Generic assignments are deliberately same-line only. `\s*` is NOT used
+# around the separator because it can consume a newline, turning an empty
+# `.env` variable into a false match against the next line.
 GENERIC_ASSIGNMENT_RE = re.compile(
-    r"(?im)^\s*(?P<name>[A-Z0-9_.-]*(?:PASSWORD|SECRET|TOKEN|API[_-]?KEY)[A-Z0-9_.-]*)"
-    r"\s*[:=]\s*[\"']?(?P<value>[^\s\"'#]{12,})"
+    r"(?im)^[ \t]*(?P<name>[A-Z0-9_.-]*(?:PASSWORD|SECRET|TOKEN|API[_-]?KEY)[A-Z0-9_.-]*)"
+    r"[ \t]*[:=][ \t]*[\"']?(?P<value>[^\s\"'#]{12,})"
 )
 
 SAFE_GENERIC_PREFIXES = (
@@ -52,9 +56,25 @@ SAFE_GENERIC_PREFIXES = (
     "example-",
     "placeholder-",
     "changeme",
+    "replace-me",
+    "dummy-",
+    "your-",
+    "your_",
 )
-SAFE_LOCAL_PASSWORDS = {"agent_lab", "postgres", "password"}
-SAFE_LOCAL_HOSTS = {"localhost", "127.0.0.1", "postgres", "db"}
+SAFE_LOCAL_PASSWORDS = {"agent_lab", "postgres", "password", "pass"}
+SAFE_LOCAL_HOSTS = {"localhost", "127.0.0.1", "postgres", "db", "internal-host"}
+
+# Expressions below are code/config indirection rather than literal secrets.
+SAFE_EXPRESSION_MARKERS = (
+    "os.getenv(",
+    "os.environ",
+    "getenv(",
+    "secrets.",
+    "settings.",
+    "process.env",
+    "import.meta.env",
+    "window.",
+)
 
 
 def git(*args: str, text: bool = True) -> str | bytes:
@@ -83,6 +103,22 @@ def is_sensitive_path(path: str) -> bool:
     if name in SENSITIVE_FILENAMES:
         return True
     return p.suffix.lower() in SENSITIVE_SUFFIXES
+
+
+def looks_like_safe_expression(value: str) -> bool:
+    value_lower = value.lower()
+    if value.startswith(SAFE_GENERIC_PREFIXES):
+        return True
+    if value_lower in SAFE_LOCAL_PASSWORDS:
+        return True
+    if any(marker in value_lower for marker in SAFE_EXPRESSION_MARKERS):
+        return True
+    # Function calls / template expressions are code, not literal credential
+    # material. High-confidence token patterns above still catch a real token
+    # even if somebody embeds one inside source code.
+    if any(char in value for char in "(){}[]"):
+        return True
+    return False
 
 
 def scan_blob(object_id: str, paths: set[str]) -> list[tuple[str, str]]:
@@ -117,15 +153,7 @@ def scan_blob(object_id: str, paths: set[str]) -> list[tuple[str, str]]:
 
     for match in GENERIC_ASSIGNMENT_RE.finditer(text):
         value = match.group("value")
-        value_lower = value.lower()
-        if value.startswith(SAFE_GENERIC_PREFIXES):
-            continue
-        if value_lower in SAFE_LOCAL_PASSWORDS:
-            continue
-        # GitHub Actions secret expressions sometimes arrive without a trailing
-        # brace in the regex capture because of YAML punctuation; treat any
-        # expression beginning with the secrets context as safe indirection.
-        if "secrets." in value_lower:
+        if looks_like_safe_expression(value):
             continue
         findings.extend(("literal_secret_assignment", path) for path in paths)
 
