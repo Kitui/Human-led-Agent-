@@ -65,6 +65,18 @@ def test_tasks_workspace_registers_write_tool_and_calls_controlled_backend():
     assert 'required: ["run_id", "tenant_id", "customer_name"]' in source
 
 
+def test_tasks_workspace_refreshes_after_webmcp_execution():
+    tool_source = (ROOT / "frontend" / "js" / "webmcp" / "task-tools.js").read_text(encoding="utf-8")
+    workspace_source = (ROOT / "frontend" / "js" / "tasks.js").read_text(encoding="utf-8")
+
+    assert 'export const TASK_EXECUTED_EVENT = "correlact:task-executed"' in tool_source
+    assert "notifyTaskExecuted(result);" in tool_source
+    assert "window.dispatchEvent(new CustomEvent(TASK_EXECUTED_EVENT" in tool_source
+    assert "window.addEventListener(TASK_EXECUTED_EVENT" in workspace_source
+    assert "showExecutionSuccess(event.detail);" in workspace_source
+    assert "await loadApprovedRuns();" in workspace_source
+
+
 def test_approval_evidence_excludes_task_execution_results():
     source = (ROOT / "frontend" / "js" / "approvals.js").read_text(encoding="utf-8")
 
