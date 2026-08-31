@@ -5,12 +5,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_investigation_surface_is_chatgpt_first_and_inspector_optional():
-    source = (ROOT / "frontend" / "investigation" / "index.html").read_text(encoding="utf-8")
+    source = (ROOT / "frontend" / "investigation" / "index.html").read_text(
+        encoding="utf-8"
+    )
 
     assert "challenge demo credentials supplied with the submission" in source
     assert "ChatGPT's in-app browser" in source
     assert "Model Context Tool Inspector is optional" in source
-    assert "Investigate the ACME renewal issue for tenant_red" in source
+    assert "ACME renewal issue for the NorthStar organization" in source
     assert "submit_action_point" in source
     assert "Open Tasks for execution" in source
 
