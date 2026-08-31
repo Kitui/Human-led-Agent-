@@ -1,4 +1,5 @@
 import { getAuthSession } from "./shared.js";
+import { restoreBrowserSession } from "./auth.js";
 import { fetchCustomer, registerCrmWebMcpTools } from "./webmcp/crm-tools.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -37,6 +38,11 @@ function showError(message) {
 }
 
 async function init() {
+  // crm.html may be opened in a different tab from the main application.
+  // Restore that tab from the shared browser cookie before deciding whether
+  // the user is signed in.
+  await restoreBrowserSession();
+
   const session = getAuthSession();
   const form = $("#customer-form");
   const tenantSelect = $("#tenant-select");
