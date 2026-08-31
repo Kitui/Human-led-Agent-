@@ -66,7 +66,9 @@ async def approve_webmcp_action_point(
         raise RunNotFoundError(run_id)
     run = WorkflowRun.model_validate(orm_row, from_attributes=True)
 
-    if run.status == RunStatus.APPROVED:
+    # Preserve the existing approve endpoint's idempotent behavior for a run
+    # that has already moved beyond the human decision.
+    if run.status in (RunStatus.APPROVED, RunStatus.COMPLETED):
         return run
     if run.status != RunStatus.AWAITING_APPROVAL:
         raise InvalidRunStateError(
@@ -130,7 +132,11 @@ async def execute_webmcp_approved_task(
         raise ValueError("customer_name is required.")
 
     evidence_customer = _crm_evidence_reference(run)
-    if evidence_customer and evidence_customer.casefold() != customer_name.casefold():
+    if not evidence_customer:
+        raise InvalidRunStateError(
+            "Approved WebMCP task has no CRM evidence reference to bind the customer scope."
+        )
+    if evidence_customer.casefold() != customer_name.casefold():
         raise ValueError("customer_name does not match the CRM evidence attached to this approved run.")
 
     if run.step_count >= run.max_steps:
