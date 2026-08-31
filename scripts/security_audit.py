@@ -59,12 +59,17 @@ SAFE_GENERIC_PREFIXES = (
     "placeholder-",
     "changeme",
     "replace-me",
+    "replace_with_",
     "dummy-",
     "your-",
     "your_",
     "use_",
     "choose_",
 )
+SAFE_LITERAL_PLACEHOLDERS = {
+    "any_long_random_string",
+    "a_long_random_string",
+}
 SAFE_LOCAL_PASSWORDS = {"agent_lab", "postgres", "password", "pass"}
 SAFE_LOCAL_HOSTS = {"localhost", "127.0.0.1", "postgres", "db", "internal-host"}
 
@@ -77,6 +82,12 @@ SAFE_EXPRESSION_MARKERS = (
     "process.env",
     "import.meta.env",
     "window.",
+)
+
+# Common source-code values such as `body.access_token` or
+# `config.jwt_secret` are references to data, not credential literals.
+PROPERTY_EXPRESSION_RE = re.compile(
+    r"^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+[;,]?$"
 )
 
 
@@ -112,9 +123,13 @@ def looks_like_safe_expression(value: str) -> bool:
     value_lower = value.lower()
     if value.startswith(SAFE_GENERIC_PREFIXES):
         return True
+    if value_lower in SAFE_LITERAL_PLACEHOLDERS:
+        return True
     if value_lower in SAFE_LOCAL_PASSWORDS:
         return True
     if any(marker in value_lower for marker in SAFE_EXPRESSION_MARKERS):
+        return True
+    if PROPERTY_EXPRESSION_RE.fullmatch(value):
         return True
     # Function calls / template expressions are code, not literal credential
     # material. High-confidence token patterns above still catch a real token
@@ -191,7 +206,7 @@ def main() -> int:
         print("Public-release security audit warnings (values redacted):")
         for rule, path in sorted(warnings):
             print(f"- {rule}: {path}")
-        print("These are retired learning/demo credentials; current startup code must keep rotating or removing them.")
+        print("These are retired learning/demo credentials; confirm the deployed demo secrets are rotated before publication.")
 
     if failures:
         print("Public-release security audit FAILED.")
