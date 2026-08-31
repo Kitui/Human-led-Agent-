@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Billing Workspace · Human-Led Agent Lab</title>
+  <link rel="stylesheet" href="/billing.css" />
+</head>
+<body>
+  <header class="workspace-topbar">
+    <div>
+      <p class="eyebrow">Human-Led Agent Lab</p>
+      <h1>Billing Workspace</h1>
+    </div>
+    <div class="topbar-actions">
+      <a class="back-link" href="/crm/">CRM</a>
+      <a class="back-link" href="/">Back to Agent Lab</a>
+    </div>
+  </header>
+
+  <main class="workspace-shell">
+    <section class="intro-card">
+      <div>
+        <span class="pill">WebMCP-enabled</span>
+        <h2>Invoice evidence lookup</h2>
+        <p>
+          Humans can inspect billing evidence normally. A WebMCP-aware agent can call the same
+          read-only invoice function directly and correlate it with evidence from the CRM workspace.
+        </p>
+      </div>
+      <div class="tool-status" id="webmcp-status">
+        <span class="status-dot"></span>
+        <span>Checking WebMCP…</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Human interface</p>
+            <h3>Find customer invoice</h3>
+          </div>
+        </div>
+
+        <div class="notice hidden" id="login-required">
+          Sign in to the main Agent Lab first, then return to this workspace.
+        </div>
+
+        <form id="invoice-form">
+          <label for="tenant-select">Tenant</label>
+          <select id="tenant-select" required></select>
+
+          <label for="customer-name">Customer name</label>
+          <div class="search-row">
+            <input id="customer-name" name="customer-name" placeholder="e.g. ACME" autocomplete="off" required />
+            <button type="submit" id="search-btn">Check invoice</button>
+          </div>
+        </form>
+
+        <div class="error hidden" id="invoice-error"></div>
+      </div>
+
+      <div class="card agent-card">
+        <p class="eyebrow">Agent interface</p>
+        <h3>Exposed WebMCP tool</h3>
+        <code>get_invoice</code>
+        <p class="muted">
+          The browser advertises this function to a WebMCP-aware agent. It returns invoice amount,
+          contract amount, variance, dispute state, and renewal-hold evidence.
+        </p>
+        <div class="scope-row"><span>Mode</span><strong>Read only</strong></div>
+        <div class="scope-row"><span>Auth</span><strong>Required</strong></div>
+        <div class="scope-row"><span>Tenant boundary</span><strong>Enforced</strong></div>
+      </div>
+    </section>
+
+    <section class="card result-card hidden" id="invoice-result">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Invoice record</p>
+          <h3 id="result-invoice">—</h3>
+          <p class="result-subtitle" id="result-customer">—</p>
+        </div>
+        <span class="pill neutral" id="result-status">—</span>
+      </div>
+
+      <div class="details-grid">
+        <div><span>Tenant</span><strong id="result-tenant">—</strong></div>
+        <div><span>Contract amount</span><strong id="result-contract">—</strong></div>
+        <div><span>Billed amount</span><strong id="result-billed">—</strong></div>
+        <div><span>Variance</span><strong id="result-variance">—</strong></div>
+        <div><span>Dispute</span><strong id="result-dispute">—</strong></div>
+        <div><span>Renewal hold</span><strong id="result-hold">—</strong></div>
+        <div><span>Due date</span><strong id="result-due">—</strong></div>
+      </div>
+
+      <div class="evidence-note">
+        <span>Dispute reason</span>
+        <strong id="result-reason">—</strong>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/billing.js"></script>
+</body>
+</html>
