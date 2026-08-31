@@ -17,7 +17,7 @@
       <a href="/crm/">CRM</a>
       <a href="/billing/">Billing</a>
       <a href="/tasks/">Tasks</a>
-      <a href="/">Agent Lab</a>
+      <a href="/">Correlact</a>
     </nav>
   </header>
 
@@ -28,8 +28,8 @@
         <h2>Correlate evidence and hand control to a human</h2>
         <p>
           This page exposes Support, CRM, and Billing evidence together with a controlled Action Point
-          submission capability. The browser agent can investigate and propose work, but execution stays
-          behind Correlact's existing human approval gate.
+          submission capability. A WebMCP-capable browser agent can investigate and propose work, while
+          execution remains behind Correlact's human approval gate.
         </p>
       </div>
       <div class="tool-status" id="webmcp-status">
@@ -71,7 +71,7 @@
         </p>
 
         <div class="notice hidden" id="login-required">
-          Sign in to the Agent Lab first, then return to this workspace.
+          Sign in to Correlact first, then return to this workspace.
         </div>
 
         <form id="investigation-form">
@@ -88,18 +88,22 @@
       </div>
 
       <aside class="card agent-card">
-        <p class="eyebrow">Agent test</p>
-        <h3>Investigate, then propose</h3>
-        <p class="muted">With this page active in the Model Context Tool Inspector, ask:</p>
+        <p class="eyebrow">Judge quick test</p>
+        <h3>Ask a WebMCP-capable browser agent</h3>
+        <p class="muted">
+          Open this page in ChatGPT's in-app browser or another WebMCP-capable browser agent and use
+          the suggested prompt below. The Model Context Tool Inspector is optional and is only needed
+          for manual developer verification.
+        </p>
         <blockquote>
           Investigate the ACME renewal issue for tenant_red. Use Support, CRM, and Billing tools to
           gather evidence and determine the most likely cause. Then use submit_action_point to persist
           one focused recommended action for human review. You may submit the proposal, but do not
           execute any external write action.
         </blockquote>
-        <div class="scope-row"><span>Evidence tools</span><strong>3 read-only</strong></div>
-        <div class="scope-row"><span>Proposal tool</span><strong>Internal write only</strong></div>
-        <div class="scope-row"><span>Execution</span><strong>Human approval required</strong></div>
+        <div class="scope-row"><span>Step 1</span><strong>Agent investigates</strong></div>
+        <div class="scope-row"><span>Step 2</span><strong>Review in Correlact</strong></div>
+        <div class="scope-row"><span>Step 3</span><strong>Approve, then open Tasks</strong></div>
       </aside>
     </section>
 
