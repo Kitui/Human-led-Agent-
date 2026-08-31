@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CRM Workspace · Human-Led Agent Lab</title>
+  <link rel="stylesheet" href="/crm.css" />
+</head>
+<body>
+  <header class="crm-topbar">
+    <div>
+      <p class="eyebrow">Human-Led Agent Lab</p>
+      <h1>CRM Workspace</h1>
+    </div>
+    <a class="back-link" href="/">Back to Agent Lab</a>
+  </header>
+
+  <main class="crm-shell">
+    <section class="intro-card">
+      <div>
+        <span class="pill">WebMCP-enabled</span>
+        <h2>Customer account lookup</h2>
+        <p>
+          Humans can search this workspace normally. A WebMCP-aware agent can skip the UI
+          and call the same read-only customer function directly.
+        </p>
+      </div>
+      <div class="tool-status" id="webmcp-status">
+        <span class="status-dot"></span>
+        <span>Checking WebMCP…</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Human interface</p>
+            <h3>Find customer</h3>
+          </div>
+        </div>
+
+        <div class="notice hidden" id="login-required">
+          Sign in to the main Agent Lab first, then return to this workspace.
+        </div>
+
+        <form id="customer-form">
+          <label for="tenant-select">Tenant</label>
+          <select id="tenant-select" required></select>
+
+          <label for="customer-name">Customer name</label>
+          <div class="search-row">
+            <input id="customer-name" name="customer-name" placeholder="e.g. ACME" autocomplete="off" required />
+            <button type="submit" id="search-btn">Search</button>
+          </div>
+        </form>
+
+        <div class="error hidden" id="customer-error"></div>
+      </div>
+
+      <div class="card agent-card">
+        <p class="eyebrow">Agent interface</p>
+        <h3>Exposed WebMCP tool</h3>
+        <code>get_customer</code>
+        <p class="muted">
+          The browser advertises this function to a WebMCP-aware agent. The tool accepts
+          <strong>customer_name</strong> and <strong>tenant_id</strong>, then calls the secured CRM API.
+        </p>
+        <div class="scope-row"><span>Mode</span><strong>Read only</strong></div>
+        <div class="scope-row"><span>Auth</span><strong>Required</strong></div>
+        <div class="scope-row"><span>Tenant boundary</span><strong>Enforced</strong></div>
+      </div>
+    </section>
+
+    <section class="card result-card hidden" id="customer-result">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Customer record</p>
+          <h3 id="result-name">—</h3>
+        </div>
+        <span class="pill neutral" id="result-plan">—</span>
+      </div>
+      <div class="details-grid">
+        <div><span>Tenant</span><strong id="result-tenant">—</strong></div>
+        <div><span>Account status</span><strong id="result-account">—</strong></div>
+        <div><span>Billing status</span><strong id="result-billing">—</strong></div>
+        <div><span>Renewal status</span><strong id="result-renewal">—</strong></div>
+        <div><span>Renewal value</span><strong id="result-value">—</strong></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/crm.js"></script>
+</body>
+</html>
