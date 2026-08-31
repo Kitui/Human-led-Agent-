@@ -1,6 +1,10 @@
 import { api, escapeHtml, fmtTime, getAuthSession, shortRunId } from "./shared.js";
 import { restoreBrowserSession } from "./auth.js";
-import { executeApprovedTask, registerTaskWebMcpTool } from "./webmcp/task-tools.js";
+import {
+  executeApprovedTask,
+  registerTaskWebMcpTool,
+  TASK_EXECUTED_EVENT,
+} from "./webmcp/task-tools.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -47,6 +51,11 @@ function runOrigin(run) {
   return (run.trace || []).some((event) => event.label === "WebMCP Action Point submitted")
     ? "WebMCP Investigation"
     : "Correlact Investigate";
+}
+
+function showExecutionSuccess(result) {
+  $("#execution-result").classList.remove("hidden", "error");
+  $("#execution-result").innerHTML = `<strong>Completed</strong><span>${escapeHtml(result?.execution_result || "Task execution completed.")}</span>`;
 }
 
 function renderRuns(runs) {
@@ -96,8 +105,7 @@ function renderRuns(runs) {
       button.textContent = "Executing…";
       try {
         const result = await executeApprovedTask(runId, tenantId, customerName);
-        $("#execution-result").classList.remove("hidden", "error");
-        $("#execution-result").innerHTML = `<strong>Completed</strong><span>${escapeHtml(result.execution_result || "Task execution completed.")}</span>`;
+        showExecutionSuccess(result);
         await loadApprovedRuns();
       } catch (error) {
         $("#execution-result").classList.remove("hidden");
@@ -131,6 +139,11 @@ async function init() {
   $("#tenant-select").innerHTML = session.tenantIds
     .map((tenantId) => `<option value="${escapeHtml(tenantId)}">${escapeHtml(tenantId)}</option>`)
     .join("");
+
+  window.addEventListener(TASK_EXECUTED_EVENT, async (event) => {
+    showExecutionSuccess(event.detail);
+    await loadApprovedRuns();
+  });
 
   try {
     setWebMcpStatus(await registerTaskWebMcpTool());
