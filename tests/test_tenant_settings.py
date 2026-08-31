@@ -4,11 +4,11 @@ import pytest
 
 from agent_lab import workflow
 from agent_lab.agent import (
+    SYSTEM_PROMPT,
     build_execution_agent,
     build_investigator_agent,
     resolve_investigator_instructions,
     resolve_system_prompt,
-    SYSTEM_PROMPT,
 )
 from agent_lab.models import TenantSettings
 from agent_lab.tenant_settings import update_settings
@@ -18,9 +18,9 @@ from agent_lab.workflow import TooManyConcurrentRunsError, _apply_log_level, inv
 # --- HTTP-level: defaults, persistence, prompt_version ---
 
 async def test_default_settings_match_hardcoded_behavior(client, auth_headers):
-    headers = await auth_headers("admin_user", "admin-pass-123")
+    headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
 
-    response = await client.get("/tenants/tenant_red/settings", headers=headers)
+    response = await client.get("/tenants/NorthStar/settings", headers=headers)
 
     assert response.status_code == 200
     body = response.json()
@@ -37,10 +37,10 @@ async def test_default_settings_match_hardcoded_behavior(client, auth_headers):
 
 
 async def test_updating_settings_persists_and_is_reflected_in_a_subsequent_get(client, auth_headers):
-    headers = await auth_headers("admin_user", "admin-pass-123")
+    headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
 
     patch_response = await client.patch(
-        "/tenants/tenant_green/settings",
+        "/tenants/Neptune/settings",
         json={"max_steps": 2, "log_level": "Debug"},
         headers=headers,
     )
@@ -50,33 +50,39 @@ async def test_updating_settings_persists_and_is_reflected_in_a_subsequent_get(c
     # untouched field stays at default -- proves partial-update semantics
     assert patch_response.json()["retry_limit"] == 3
 
-    get_response = await client.get("/tenants/tenant_green/settings", headers=headers)
+    get_response = await client.get("/tenants/Neptune/settings", headers=headers)
     assert get_response.json()["max_steps"] == 2
 
 
 async def test_settings_for_unknown_tenant_is_404(client, auth_headers):
-    headers = await auth_headers("admin_user", "admin-pass-123")
+    headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
 
-    response = await client.get("/tenants/tenant_unknown/settings", headers=headers)
+    response = await client.get("/tenants/organization_unknown/settings", headers=headers)
 
     assert response.status_code == 404
 
 
 async def test_prompt_version_increments_only_when_override_text_changes(client, auth_headers):
-    headers = await auth_headers("admin_user", "admin-pass-123")
+    headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
 
     first = await client.patch(
-        "/tenants/tenant_red/settings", json={"system_prompt_override": "Be terse."}, headers=headers,
+        "/tenants/NorthStar/settings",
+        json={"system_prompt_override": "Be terse."},
+        headers=headers,
     )
     assert first.json()["prompt_version"] == 2
 
     same_again = await client.patch(
-        "/tenants/tenant_red/settings", json={"system_prompt_override": "Be terse."}, headers=headers,
+        "/tenants/NorthStar/settings",
+        json={"system_prompt_override": "Be terse."},
+        headers=headers,
     )
     assert same_again.json()["prompt_version"] == 2  # no bump -- unchanged text
 
     changed = await client.patch(
-        "/tenants/tenant_red/settings", json={"system_prompt_override": "Be verbose."}, headers=headers,
+        "/tenants/NorthStar/settings",
+        json={"system_prompt_override": "Be verbose."},
+        headers=headers,
     )
     assert changed.json()["prompt_version"] == 3
 
@@ -85,17 +91,29 @@ async def test_prompt_version_increments_only_when_override_text_changes(client,
 # No DB, no agent call -- these are isolated functions from agent.py.
 
 def test_auto_update_prompt_true_ignores_override():
-    settings = TenantSettings(tenant_slug="t", auto_update_prompt=True, system_prompt_override="Custom.")
+    settings = TenantSettings(
+        tenant_slug="t",
+        auto_update_prompt=True,
+        system_prompt_override="Custom.",
+    )
     assert resolve_system_prompt(settings) == SYSTEM_PROMPT
 
 
 def test_auto_update_prompt_false_uses_override():
-    settings = TenantSettings(tenant_slug="t", auto_update_prompt=False, system_prompt_override="Custom.")
+    settings = TenantSettings(
+        tenant_slug="t",
+        auto_update_prompt=False,
+        system_prompt_override="Custom.",
+    )
     assert resolve_system_prompt(settings) == "Custom."
 
 
 def test_auto_update_prompt_false_with_no_override_falls_back_to_default():
-    settings = TenantSettings(tenant_slug="t", auto_update_prompt=False, system_prompt_override=None)
+    settings = TenantSettings(
+        tenant_slug="t",
+        auto_update_prompt=False,
+        system_prompt_override=None,
+    )
     assert resolve_system_prompt(settings) == SYSTEM_PROMPT
 
 
@@ -115,7 +133,7 @@ def test_non_default_language_appends_instruction():
 
 def test_new_workflow_run_uses_settings_max_steps():
     settings = TenantSettings(tenant_slug="t", max_steps=1)
-    run = workflow._new_workflow_run("tenant_red", "issue text", settings)
+    run = workflow._new_workflow_run("NorthStar", "issue text", settings)
     assert run.max_steps == 1
 
 
@@ -127,7 +145,11 @@ def test_build_execution_agent_applies_model():
 
 
 def test_build_investigator_agent_applies_model():
-    agent = build_investigator_agent(mcp_server=None, instructions="x", model="gpt-4o-mini")
+    agent = build_investigator_agent(
+        mcp_server=None,
+        instructions="x",
+        model="gpt-4o-mini",
+    )
     assert agent.model == "gpt-4o-mini"
 
 
@@ -145,32 +167,34 @@ def test_apply_log_level_sets_workflow_and_execution_loggers():
 # --- max_concurrent_runs: real logic, rejected before any agent/guardrail call ---
 
 async def test_investigate_rejects_over_max_concurrent_runs(client, auth_headers):
-    headers = await auth_headers("admin_user", "admin-pass-123")
+    headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
 
     limit_response = await client.patch(
-        "/tenants/tenant_red/settings", json={"max_concurrent_runs": 1}, headers=headers,
+        "/tenants/NorthStar/settings",
+        json={"max_concurrent_runs": 1},
+        headers=headers,
     )
     assert limit_response.status_code == 200
 
     # Simulate one run already in flight -- this is the exact module-level
     # state the real concurrency-guard code reads, not a mock.
-    workflow._in_flight_runs["tenant_red"] = 1
+    workflow._in_flight_runs["NorthStar"] = 1
     try:
         response = await client.post(
             "/investigate",
-            json={"tenant_id": "tenant_red", "issue": "ACME renewal is blocked."},
+            json={"tenant_id": "NorthStar", "issue": "ACME renewal is blocked."},
             headers=headers,
         )
         assert response.status_code == 429
     finally:
-        workflow._in_flight_runs.pop("tenant_red", None)
+        workflow._in_flight_runs.pop("NorthStar", None)
 
 
 async def test_investigate_issue_raises_too_many_concurrent_runs_directly(db_session):
-    await update_settings(db_session, "tenant_green", max_concurrent_runs=1)
-    workflow._in_flight_runs["tenant_green"] = 1
+    await update_settings(db_session, "Neptune", max_concurrent_runs=1)
+    workflow._in_flight_runs["Neptune"] = 1
     try:
         with pytest.raises(TooManyConcurrentRunsError):
-            await investigate_issue(tenant_id="tenant_green", issue="x", db=db_session)
+            await investigate_issue(tenant_id="Neptune", issue="x", db=db_session)
     finally:
-        workflow._in_flight_runs.pop("tenant_green", None)
+        workflow._in_flight_runs.pop("Neptune", None)
