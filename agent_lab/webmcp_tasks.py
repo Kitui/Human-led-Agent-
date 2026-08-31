@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import time
 from datetime import datetime, timezone
 
@@ -23,16 +24,60 @@ async def _persist(db: AsyncSession, orm_row: WorkflowRunORM, run: WorkflowRun) 
 
 
 def is_webmcp_action_point(run: WorkflowRun) -> bool:
-    return any(event.label == "WebMCP Action Point submitted" for event in run.trace)
+    """Compatibility hook used by api.py for controlled approval routing.
+
+    The function name predates unified execution. Correlact now sends every
+    Action Point that requires human approval through the same approval-only
+    path, whether it originated in the main Investigate page or the WebMCP
+    Investigation Hub.
+    """
+    return bool(run.action_point and run.action_point.requires_human_approval)
 
 
-def _crm_evidence_reference(run: WorkflowRun) -> str | None:
+def approved_customer_reference(run: WorkflowRun) -> str | None:
+    """Return the customer identity bound by investigation evidence.
+
+    WebMCP submissions attach an explicit CRM EVIDENCE trace. Main Correlact
+    investigations predate that trace shape, so they bind to the real
+    get_customer result already persisted in their MCP trace. No customer is
+    inferred from the issue text or from a browser-supplied value.
+    """
     for event in run.trace:
-        if event.tag != "EVIDENCE" or event.label != "WebMCP crm evidence attached" or not event.detail:
+        if event.tag != "EVIDENCE" or not event.detail:
+            continue
+        if event.label not in {
+            "WebMCP crm evidence attached",
+            "CRM customer evidence attached",
+        }:
             continue
         reference, separator, _ = event.detail.partition(":")
         if separator and reference.strip():
             return reference.strip()
+
+    for event in run.trace:
+        if event.label != "get_customer result received" or not event.detail:
+            continue
+
+        detail = event.detail.strip()
+        try:
+            parsed = json.loads(detail)
+        except (TypeError, ValueError):
+            parsed = None
+
+        if isinstance(parsed, dict):
+            customer = parsed.get("customer")
+            if parsed.get("found") and isinstance(customer, dict):
+                name = customer.get("name")
+                if isinstance(name, str) and name.strip():
+                    return name.strip()
+
+        # Defensive compatibility for old traces that may contain a Python
+        # representation or a truncated JSON result. The customer name occurs
+        # near the beginning of get_customer output, before trace truncation.
+        match = re.search(r"[\"']name[\"']\s*:\s*[\"']([^\"']+)[\"']", detail)
+        if match:
+            return match.group(1).strip()
+
     return None
 
 
@@ -55,19 +100,19 @@ async def approve_webmcp_action_point(
     run_id: str,
     comment: str | None = None,
 ) -> WorkflowRun:
-    """Approve a WebMCP proposal but deliberately defer external execution.
+    """Authorize an Action Point without performing its external write.
 
-    The approved run stays in APPROVED until a WebMCP-aware browser agent (or
-    the Tasks human UI) calls the separate create_task capability. This keeps
-    the human decision and the consequential write as two auditable steps.
+    Kept under its original function name for API compatibility. Both normal
+    Correlact investigations and WebMCP-submitted proposals now stop in
+    APPROVED. A separate call to the Tasks WebMCP create_task capability is
+    required for consequential execution.
     """
     orm_row = await db.get(WorkflowRunORM, run_id)
     if orm_row is None:
         raise RunNotFoundError(run_id)
     run = WorkflowRun.model_validate(orm_row, from_attributes=True)
 
-    # Preserve the existing approve endpoint's idempotent behavior for a run
-    # that has already moved beyond the human decision.
+    # Preserve the approve endpoint's idempotent behavior after the decision.
     if run.status in (RunStatus.APPROVED, RunStatus.COMPLETED):
         return run
     if run.status != RunStatus.AWAITING_APPROVAL:
@@ -76,8 +121,8 @@ async def approve_webmcp_action_point(
         )
     if run.action_point is None:
         raise InvalidRunStateError("Run has no Action Point to approve.")
-    if not is_webmcp_action_point(run):
-        raise InvalidRunStateError("Run is not a WebMCP-submitted Action Point.")
+    if not run.action_point.requires_human_approval:
+        raise InvalidRunStateError("Run does not require human approval.")
 
     if comment:
         run.review_comment = comment
@@ -97,7 +142,7 @@ async def approve_webmcp_action_point(
             timestamp=run.updated_at,
             kind="execution",
             label="Execution approved by human reviewer",
-            detail="Approved for WebMCP task execution. No external action has executed yet.",
+            detail="Approved for controlled task execution. No external action has executed yet.",
             tag="HUMAN_APPROVAL",
         )
     )
@@ -110,34 +155,39 @@ async def execute_webmcp_approved_task(
     run_id: str,
     customer_name: str,
 ) -> WorkflowRun:
-    """Execute exactly one already-approved Action Point through the task adapter."""
+    """Execute exactly one already-approved Correlact Action Point.
+
+    The consequential write is still reached through the WebMCP create_task
+    surface, but the approved run may originate from either Correlact's main
+    Investigate page or the WebMCP Investigation Hub.
+    """
     orm_row = await db.get(WorkflowRunORM, run_id)
     if orm_row is None:
         raise RunNotFoundError(run_id)
     run = WorkflowRun.model_validate(orm_row, from_attributes=True)
 
-    if run.status == RunStatus.COMPLETED:
-        return run
-    if run.status != RunStatus.APPROVED:
+    if run.status not in (RunStatus.APPROVED, RunStatus.COMPLETED):
         raise InvalidRunStateError(
             f"Run cannot execute a WebMCP task from state '{run.status.value}'. Human approval is required first."
         )
     if run.action_point is None:
         raise InvalidRunStateError("Run has no approved Action Point to execute.")
-    if not is_webmcp_action_point(run):
-        raise InvalidRunStateError("Run is not a WebMCP-submitted Action Point.")
 
     customer_name = customer_name.strip()
     if not customer_name:
         raise ValueError("customer_name is required.")
 
-    evidence_customer = _crm_evidence_reference(run)
+    evidence_customer = approved_customer_reference(run)
     if not evidence_customer:
         raise InvalidRunStateError(
-            "Approved WebMCP task has no CRM evidence reference to bind the customer scope."
+            "Approved task has no CRM customer evidence to bind the execution scope."
         )
     if evidence_customer.casefold() != customer_name.casefold():
         raise ValueError("customer_name does not match the CRM evidence attached to this approved run.")
+
+    # A repeated call returns the already-completed run and never writes again.
+    if run.status == RunStatus.COMPLETED:
+        return run
 
     if run.step_count >= run.max_steps:
         run.status = RunStatus.FAILED

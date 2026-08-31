@@ -18,24 +18,47 @@ function setWebMcpStatus({ supported, registered }) {
     : "WebMCP unavailable in this browser";
 }
 
-function crmEvidenceCustomer(run) {
-  const event = (run.trace || []).find(
-    (item) => item.tag === "EVIDENCE" && item.label === "WebMCP crm evidence attached" && item.detail,
+function approvedCustomer(run) {
+  const explicit = (run.trace || []).find(
+    (item) => item.tag === "EVIDENCE"
+      && ["WebMCP crm evidence attached", "CRM customer evidence attached"].includes(item.label)
+      && item.detail,
   );
-  if (!event) return "";
-  return String(event.detail).split(":", 1)[0].trim();
+  if (explicit) return String(explicit.detail).split(":", 1)[0].trim();
+
+  const legacyRead = (run.trace || []).find(
+    (item) => item.label === "get_customer result received" && item.detail,
+  );
+  if (!legacyRead) return "";
+
+  const detail = String(legacyRead.detail);
+  try {
+    const parsed = JSON.parse(detail);
+    if (parsed?.found && parsed?.customer?.name) return String(parsed.customer.name).trim();
+  } catch (_) {
+    // Fall through to a tolerant match for old/truncated trace formats.
+  }
+
+  const match = detail.match(/["']name["']\s*:\s*["']([^"']+)["']/);
+  return match ? match[1].trim() : "";
+}
+
+function runOrigin(run) {
+  return (run.trace || []).some((event) => event.label === "WebMCP Action Point submitted")
+    ? "WebMCP Investigation"
+    : "Correlact Investigate";
 }
 
 function renderRuns(runs) {
   const container = $("#approved-runs");
   if (!runs.length) {
-    container.innerHTML = '<p class="empty">No approved WebMCP Action Points are waiting for task execution.</p>';
+    container.innerHTML = '<p class="empty">No approved Action Points are waiting for task execution.</p>';
     return;
   }
 
   container.innerHTML = runs.map((run) => {
     const ap = run.action_point || {};
-    const customer = crmEvidenceCustomer(run) || "—";
+    const customer = approvedCustomer(run) || "—";
     return `
       <article class="run-card" data-run-id="${escapeHtml(run.run_id)}" data-customer="${escapeHtml(customer)}">
         <div class="run-card-head">
@@ -49,12 +72,13 @@ function renderRuns(runs) {
           <div><span>Customer</span><strong>${escapeHtml(customer)}</strong></div>
           <div><span>Target team</span><strong>${escapeHtml(ap.target_team || "—")}</strong></div>
           <div><span>Priority</span><strong>${escapeHtml(ap.priority || "—")}</strong></div>
-          <div><span>Approved</span><strong>${run.updated_at ? escapeHtml(fmtTime(run.updated_at)) : "—"}</strong></div>
+          <div><span>Source</span><strong>${escapeHtml(runOrigin(run))}</strong></div>
         </div>
         <div class="approved-action">
           <span>Approved action</span>
           <p>${escapeHtml(ap.recommended_action || "—")}</p>
         </div>
+        <div class="scope-row"><span>Approved</span><strong>${run.updated_at ? escapeHtml(fmtTime(run.updated_at)) : "—"}</strong></div>
         <button class="execute-btn" data-execute-run="${escapeHtml(run.run_id)}" ${customer === "—" ? "disabled" : ""}>
           Execute approved task
         </button>
@@ -90,11 +114,8 @@ async function loadApprovedRuns() {
   const tenantId = $("#tenant-select").value;
   if (!tenantId) return;
   const runs = await api(`/runs?status=approved&tenant_id=${encodeURIComponent(tenantId)}`);
-  const webmcpRuns = runs.filter((run) =>
-    (run.trace || []).some((event) => event.label === "WebMCP Action Point submitted"),
-  );
-  renderRuns(webmcpRuns);
-  $("#ready-count").textContent = String(webmcpRuns.length);
+  renderRuns(runs);
+  $("#ready-count").textContent = String(runs.length);
 }
 
 async function init() {

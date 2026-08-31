@@ -1,15 +1,13 @@
 # WebMCP Tasks Workspace
 
-Correlact now separates the human decision from the consequential write.
+Correlact separates the human decision from the consequential write for every Action Point that requires approval.
 
-## Flow
+## Unified flow
 
 ```text
-Investigation Hub
-  get_case
-  get_customer
-  get_invoice
-  submit_action_point
+Main Correlact Investigate OR WebMCP Investigation Hub
+        ↓
+Action Point
         ↓
 awaiting_approval
         ↓
@@ -24,6 +22,8 @@ GitHub Issue created exactly once
         ↓
 completed
 ```
+
+The investigation mechanisms remain different. The main Correlact page uses the backend investigator with MCP `get_customer`; the WebMCP Investigation Hub exposes `get_case`, `get_customer`, `get_invoice`, and `submit_action_point` to a browser agent. Both now converge on the same approval and execution boundary.
 
 ## WebMCP tool
 
@@ -47,23 +47,27 @@ It does **not** accept a new description, priority, or target team. Those values
 
 ## Server enforcement
 
-`POST /runs/{run_id}/approve` detects WebMCP-submitted Action Points and persists them as `approved` without executing an external write.
+`POST /runs/{run_id}/approve` persists every human-review Action Point as `approved` without executing an external write.
 
 `POST /webmcp/tasks` then verifies:
 
 - the signed-in user owns the tenant;
 - the run belongs to that tenant;
-- the run originated from `submit_action_point`;
-- the run status is `approved`;
-- the supplied customer matches the CRM evidence attached to the approved run.
+- the run status is `approved` (or returns the existing result if already `completed`);
+- the supplied customer matches CRM evidence bound to the approved run.
+
+Customer evidence comes from:
+
+- explicit `WebMCP crm evidence attached` traces for WebMCP-submitted runs; or
+- the persisted `get_customer result received` MCP trace for main Correlact investigations.
 
 Only then does `agent_lab/webmcp_tasks.py` call the existing durable GitHub task adapter with the approved Action Point's target team, priority, and recommended action.
 
-The same idempotency formula used by the existing execution workflow is retained, and `ExecutedActionORM` remains the durable exactly-once boundary.
+The same idempotency formula is retained, and `ExecutedActionORM` remains the durable exactly-once boundary.
 
 ## Evidence vs execution outcome
 
-The Approvals page now treats `EVIDENCE` trace events from Support, CRM, and Billing as decision evidence. A later `create_task` result is displayed as execution outcome, not as evidence supporting the original approval.
+The Approvals page keeps investigation evidence separate from the later `create_task` execution result. The external GitHub task is an outcome of the approved decision, not evidence used to justify the decision.
 
 ## Challenge demo
 
@@ -78,3 +82,13 @@ Use create_task. Do not alter the approved action or create any additional work.
 ```
 
 Expected result: the browser agent calls `create_task`, Correlact verifies the prior human approval, one GitHub Issue is created, and the run becomes `completed`.
+
+## Product flow test
+
+The same execution behavior now applies when a user begins from Correlact's main Investigate page:
+
+1. enter the issue in Correlact and run the investigation;
+2. approve the generated Action Point;
+3. verify the run stops at `approved` and no GitHub issue exists yet;
+4. open `/tasks/` and execute the approved task;
+5. verify one GitHub issue is created and the run becomes `completed`.
