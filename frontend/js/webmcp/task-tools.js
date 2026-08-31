@@ -2,12 +2,20 @@ import { api, getAuthSession } from "../shared.js";
 
 let registered = false;
 
+export const TASK_EXECUTED_EVENT = "correlact:task-executed";
+
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
   if (!session) throw new Error("Sign in to Correlact before using Tasks tools.");
   if (!session.tenantIds.includes(tenantId)) {
     throw new Error(`You are not authorized for tenant ${tenantId}.`);
   }
+}
+
+function notifyTaskExecuted(result) {
+  window.dispatchEvent(new CustomEvent(TASK_EXECUTED_EVENT, {
+    detail: result,
+  }));
 }
 
 export async function executeApprovedTask(runId, tenantId, customerName) {
@@ -59,6 +67,7 @@ export async function registerTaskWebMcpTool() {
     },
     execute: async ({ run_id, tenant_id, customer_name }) => {
       const result = await executeApprovedTask(run_id, tenant_id, customer_name);
+      notifyTaskExecuted(result);
       return {
         source: "tasks",
         tool: "create_task",
