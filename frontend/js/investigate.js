@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — Investigate page */
+/* CorrelAct — Investigate workspace */
 import {
   qs, qsa, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge,
   traceIconClass, traceIconSvg, api, showBanner, loadHistory, upsertHistory,
@@ -10,7 +10,7 @@ const STEP_ORDER = ["new", "investigating", "awaiting_approval", "approved", "ex
 const STEP_META = {
   new: { label: "NEW", icon: '<rect x="6" y="6" width="12" height="14" rx="1.5"/><path d="M9 6V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/>' },
   investigating: { label: "INVESTIGATING", icon: '<circle cx="11" cy="11" r="6"/><path d="m20 20-3.5-3.5"/>' },
-  awaiting_approval: { label: "AWAITING_APPROVAL", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
+  awaiting_approval: { label: "AWAITING APPROVAL", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
   approved: { label: "APPROVED", icon: '<path d="M12 3 5 6v5c0 4.5 3 8 7 9 4-1 7-4.5 7-9V6l-7-3Z"/><path d="m9.5 12 2 2 3.5-3.5"/>' },
   executing: { label: "EXECUTING", icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82M4.68 9A1.65 1.65 0 0 0 4.35 7.18M9 4.6a1.65 1.65 0 0 0 1.51-1M15 4.6a1.65 1.65 0 0 1-1.51-1M15 19.4a1.65 1.65 0 0 1 1.82.33M9 19.4a1.65 1.65 0 0 0-1.82.33"/><path d="M3 12h1M20 12h1M12 3v1M12 20v1"/>' },
   completed: { label: "COMPLETED", icon: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>' },
@@ -35,7 +35,7 @@ export function renderStepper(status) {
   el.style.display = "flex";
 }
 
-/* ---------------- action point ---------------- */
+/* ---------------- proposed action ---------------- */
 function renderActionPoint(run) {
   const card = qs("#action-point-card");
   const ap = run.action_point;
@@ -44,10 +44,10 @@ function renderActionPoint(run) {
 
   const status = (run.status || "").toLowerCase();
   qs("#action-point-heading").textContent = status === "awaiting_approval"
-    ? "Action Point (Awaiting Approval)"
+    ? "Proposed Action · Awaiting Approval"
     : status === "approved"
-      ? "Action Point (Approved — Awaiting Execution)"
-      : "Action Point";
+      ? "Proposed Action · Approved"
+      : "Proposed Action";
 
   const fields = qs("#ap-fields");
   fields.innerHTML = `
@@ -76,7 +76,7 @@ function renderActionPoint(run) {
     qs("#reject-btn").addEventListener("click", () => doReject(run.run_id));
   } else if (status === "approved") {
     actions.innerHTML = `
-      <div class="result-note">Approved by a human. No external action has executed yet.</div>
+      <div class="result-note">Approved by a human reviewer. No external action has executed yet.</div>
       <a class="btn btn-primary" href="/tasks/">Open Tasks Workspace</a>
     `;
   } else if (status === "completed") {
