@@ -3,21 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Investigation Hub · Correlact</title>
+  <title>Investigation · CorrelAct</title>
   <link rel="stylesheet" href="/investigation.css" />
+  <link rel="stylesheet" href="/correlact-ui.css" />
 </head>
 <body>
   <header class="workspace-topbar">
     <div>
-      <p class="eyebrow">Correlact</p>
-      <h1>Investigation Hub</h1>
+      <p class="eyebrow">CorrelAct</p>
+      <h1>Investigation Workspace</h1>
     </div>
     <nav class="topbar-actions" aria-label="Workspace navigation">
       <a href="/support/">Support</a>
       <a href="/crm/">CRM</a>
       <a href="/billing/">Billing</a>
       <a href="/tasks/">Tasks</a>
-      <a href="/">Correlact</a>
+      <a href="/">CorrelAct</a>
     </nav>
   </header>
 
@@ -27,9 +28,9 @@
         <span class="pill">WebMCP orchestration</span>
         <h2>Correlate evidence and hand control to a human</h2>
         <p>
-          This page exposes Support, CRM, and Billing evidence together with a controlled Action Point
-          submission capability. A WebMCP-capable browser agent can investigate and propose work, while
-          execution remains behind Correlact's human approval gate.
+          This workspace exposes Support, CRM, and Billing evidence together with a controlled action
+          proposal capability. A WebMCP-capable browser agent can investigate and propose work, while
+          execution remains behind CorrelAct's human approval gate.
         </p>
       </div>
       <div class="tool-status" id="webmcp-status">
@@ -55,7 +56,7 @@
         <p>What invoice evidence explains the dispute or renewal hold?</p>
       </article>
       <article class="tool-card">
-        <span class="source-label">Correlact</span>
+        <span class="source-label">CorrelAct</span>
         <code>submit_action_point</code>
         <p>Persist one evidence-grounded proposal for human review. No external action is executed.</p>
       </article>
@@ -71,7 +72,7 @@
         </p>
 
         <div class="notice hidden" id="login-required">
-          Sign in to Correlact first, then return to this workspace.
+          Sign in to CorrelAct first, then return to this workspace.
         </div>
 
         <form id="investigation-form">
@@ -91,7 +92,7 @@
         <p class="eyebrow">Judge quick test</p>
         <h3>Ask a WebMCP-capable browser agent</h3>
         <p class="muted">
-          First sign in to Correlact using the challenge demo credentials supplied with the submission.
+          First sign in to CorrelAct using the challenge demo credentials supplied with the submission.
           Then open this page in ChatGPT's in-app browser or another WebMCP-capable browser agent and
           use the suggested prompt below. The Model Context Tool Inspector is optional and is only
           needed for manual developer verification.
@@ -102,7 +103,7 @@
           one focused recommended action for human review. You may submit the proposal, but do not
           execute any external write action.
         </blockquote>
-        <div class="scope-row"><span>Step 0</span><strong>Sign in to Correlact</strong></div>
+        <div class="scope-row"><span>Step 0</span><strong>Sign in to CorrelAct</strong></div>
         <div class="scope-row"><span>Step 1</span><strong>Agent investigates</strong></div>
         <div class="scope-row"><span>Step 2</span><strong>Review and approve</strong></div>
         <div class="scope-row"><span>Step 3</span><strong>Open Tasks for execution</strong></div>
