@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Support Workspace · Human-Led Agent Lab</title>
+  <link rel="stylesheet" href="/support.css" />
+</head>
+<body>
+  <header class="workspace-topbar">
+    <div>
+      <p class="eyebrow">Human-Led Agent Lab</p>
+      <h1>Support Workspace</h1>
+    </div>
+    <div class="topbar-actions">
+      <a class="back-link" href="/crm/">CRM</a>
+      <a class="back-link" href="/billing/">Billing</a>
+      <a class="back-link" href="/">Back to Agent Lab</a>
+    </div>
+  </header>
+
+  <main class="workspace-shell">
+    <section class="intro-card">
+      <div>
+        <span class="pill">WebMCP-enabled</span>
+        <h2>Customer case evidence lookup</h2>
+        <p>
+          Humans can inspect a support case normally. A WebMCP-aware agent can call the same
+          read-only case function directly and correlate the customer-reported issue with CRM and Billing evidence.
+        </p>
+      </div>
+      <div class="tool-status" id="webmcp-status">
+        <span class="status-dot"></span>
+        <span>Checking WebMCP…</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Human interface</p>
+            <h3>Find customer case</h3>
+          </div>
+        </div>
+
+        <div class="notice hidden" id="login-required">
+          Sign in to the main Agent Lab first, then return to this workspace.
+        </div>
+
+        <form id="case-form">
+          <label for="tenant-select">Tenant</label>
+          <select id="tenant-select" required></select>
+
+          <label for="customer-name">Customer name</label>
+          <div class="search-row">
+            <input id="customer-name" name="customer-name" placeholder="e.g. ACME" autocomplete="off" required />
+            <button type="submit" id="search-btn">Check case</button>
+          </div>
+        </form>
+
+        <div class="error hidden" id="case-error"></div>
+      </div>
+
+      <div class="card agent-card">
+        <p class="eyebrow">Agent interface</p>
+        <h3>Exposed WebMCP tool</h3>
+        <code>get_case</code>
+        <p class="muted">
+          The browser advertises this function to a WebMCP-aware agent. It returns the customer-reported
+          issue, case priority, category, escalation state, status, channel, and assigned team.
+        </p>
+        <div class="scope-row"><span>Mode</span><strong>Read only</strong></div>
+        <div class="scope-row"><span>Auth</span><strong>Required</strong></div>
+        <div class="scope-row"><span>Tenant boundary</span><strong>Enforced</strong></div>
+      </div>
+    </section>
+
+    <section class="card result-card hidden" id="case-result">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Support case</p>
+          <h3 id="result-case">—</h3>
+          <p class="result-subtitle" id="result-customer">—</p>
+        </div>
+        <span class="pill neutral" id="result-status">—</span>
+      </div>
+
+      <div class="details-grid">
+        <div><span>Tenant</span><strong id="result-tenant">—</strong></div>
+        <div><span>Priority</span><strong id="result-priority">—</strong></div>
+        <div><span>Channel</span><strong id="result-channel">—</strong></div>
+        <div><span>Category</span><strong id="result-category">—</strong></div>
+        <div><span>Escalation</span><strong id="result-escalation">—</strong></div>
+        <div><span>Assigned team</span><strong id="result-team">—</strong></div>
+      </div>
+
+      <div class="evidence-note">
+        <span>Subject</span>
+        <strong id="result-subject">—</strong>
+      </div>
+      <div class="evidence-note">
+        <span>Customer message</span>
+        <strong id="result-message">—</strong>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/support.js"></script>
+</body>
+</html>
