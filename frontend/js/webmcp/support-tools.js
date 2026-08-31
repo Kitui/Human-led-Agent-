@@ -6,7 +6,7 @@ const REFERENCE_CASES = [
   {
     case_id: "CASE-ACME-8841",
     customer_name: "ACME",
-    tenant_id: "tenant_red",
+    tenant_id: "NorthStar",
     channel: "email",
     priority: "high",
     status: "open",
@@ -21,7 +21,7 @@ const REFERENCE_CASES = [
   {
     case_id: "CASE-GREENMART-2190",
     customer_name: "GreenMart",
-    tenant_id: "tenant_green",
+    tenant_id: "Neptune",
     channel: "web",
     priority: "low",
     status: "resolved",
@@ -41,9 +41,9 @@ function normalizeCustomerName(value) {
 
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
-  if (!session) throw new Error("Sign in to Human-Led Agent Lab before using Support tools.");
+  if (!session) throw new Error("Sign in to CorrelAct before using Support tools.");
   if (!session.tenantIds.includes(tenantId)) {
-    throw new Error(`You are not authorized for tenant ${tenantId}.`);
+    throw new Error(`You are not authorized for organization ${tenantId}.`);
   }
 }
 
@@ -67,7 +67,7 @@ export async function fetchCase(customerName, tenantId) {
     (item) => normalizeCustomerName(item.customer_name) === name,
   );
   if (existsElsewhere) {
-    throw new Error("Support case is not available in this tenant.");
+    throw new Error("Support case is not available in this organization.");
   }
 
   return { found: false, error: "NOT_FOUND" };
@@ -82,7 +82,7 @@ export async function registerSupportWebMcpTools() {
   await document.modelContext.registerTool({
     name: "get_case",
     title: "Get customer support case",
-    description: "Read the current customer support case for an authorized tenant. Use this to verify the customer-reported issue, case priority, status, category, escalation state, and assigned team before correlating evidence from CRM and Billing.",
+    description: "Read the current customer support case for an authorized organization. Use this to verify the customer-reported issue, case priority, status, category, escalation state, and assigned team before correlating evidence from CRM and Billing.",
     inputSchema: {
       type: "object",
       properties: {
@@ -92,7 +92,7 @@ export async function registerSupportWebMcpTools() {
         },
         tenant_id: {
           type: "string",
-          description: "Authorized tenant workspace, for example tenant_red.",
+          description: "Authorized organization identifier, for example NorthStar.",
         },
       },
       required: ["customer_name", "tenant_id"],
