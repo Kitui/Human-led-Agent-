@@ -30,7 +30,7 @@ export async function registerActionPointWebMcpTool() {
   await document.modelContext.registerTool({
     name: "submit_action_point",
     title: "Submit Action Point for human review",
-    description: "Persist a proposed Action Point in Correlact after gathering evidence. This creates an awaiting-approval record only; it does not execute any external action. Use one focused recommended action and cite the evidence that supports it.",
+    description: "Persist a proposed Action Point in Correlact after gathering evidence. This creates an awaiting-approval record only and does not execute any external action. The approved execution path creates one internal task for the target team, so recommend one focused task and cite the evidence that supports it.",
     inputSchema: {
       type: "object",
       properties: {
@@ -60,7 +60,7 @@ export async function registerActionPointWebMcpTool() {
         },
         recommended_action: {
           type: "string",
-          description: "One focused next action for a human reviewer to approve or reject. Do not claim it has already been executed.",
+          description: "One focused internal task for the target team to perform if a human approves it. Do not claim the task or underlying business change has already been executed.",
         },
         confidence: {
           type: "number",
@@ -69,7 +69,7 @@ export async function registerActionPointWebMcpTool() {
         },
         target_team: {
           type: "string",
-          description: "Team that should own the approved action.",
+          description: "Team that should own the approved task.",
         },
         evidence: {
           type: "array",
