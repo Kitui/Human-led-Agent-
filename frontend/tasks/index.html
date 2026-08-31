@@ -3,21 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tasks · Correlact</title>
+  <title>Tasks · CorrelAct</title>
   <link rel="stylesheet" href="/tasks.css" />
+  <link rel="stylesheet" href="/correlact-ui.css" />
 </head>
 <body>
   <header class="workspace-topbar">
     <div>
-      <p class="eyebrow">Correlact</p>
+      <p class="eyebrow">CorrelAct</p>
       <h1>Tasks Workspace</h1>
     </div>
     <nav class="topbar-actions" aria-label="Workspace navigation">
-      <a href="/">Correlact</a>
-      <a href="/investigation/">WebMCP Investigation</a>
+      <a href="/investigation/">Investigation</a>
       <a href="/support/">Support</a>
       <a href="/crm/">CRM</a>
       <a href="/billing/">Billing</a>
+      <a href="/">CorrelAct</a>
     </nav>
   </header>
 
@@ -28,7 +29,7 @@
         <h2>Execute only what a human already approved</h2>
         <p>
           This workspace exposes one consequential WebMCP capability: <code>create_task</code>.
-          It accepts approved Action Points from both Correlact's main Investigate page and the
+          It accepts approved CorrelAct actions from both the main Investigate workspace and the
           WebMCP Investigation Hub. The browser agent cannot change the approved action, priority,
           target team, or customer scope.
         </p>
@@ -43,7 +44,7 @@
       <article class="summary-card">
         <span>Ready for execution</span>
         <strong id="ready-count">0</strong>
-        <small>Human-approved Correlact Action Points</small>
+        <small>Human-approved CorrelAct actions</small>
       </article>
       <article class="summary-card tool-summary">
         <span>Exposed capability</span>
@@ -71,7 +72,7 @@
         </div>
 
         <div class="notice hidden" id="login-required">
-          Sign in to Correlact first, then return to this workspace.
+          Sign in to CorrelAct first, then return to this workspace.
         </div>
         <div id="approved-runs" class="approved-runs"></div>
         <div id="execution-result" class="execution-result hidden"></div>
@@ -81,7 +82,7 @@
         <p class="eyebrow">Judge quick test</p>
         <h2>Ask the browser agent to execute</h2>
         <p class="muted">
-          Stay signed in to Correlact after approving the Action Point. Then open this page in ChatGPT's
+          Stay signed in to CorrelAct after approving the proposed action. Then open this page in ChatGPT's
           in-app browser or another WebMCP-capable browser agent and ask it to execute the already-approved
           run. The Model Context Tool Inspector remains optional for manual developer verification.
         </p>

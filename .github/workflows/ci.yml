@@ -39,6 +39,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # The public-release audit scans all reachable historical blobs, so
+          # CI must fetch the complete repository history rather than one SHA.
+          fetch-depth: 0
+
+      - name: Audit repository history for committed secrets
+        run: python scripts/security_audit.py
 
       - name: Build production container
         run: docker build --tag human-led-agent:ci .

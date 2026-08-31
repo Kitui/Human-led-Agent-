@@ -3,20 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Support Workspace · Human-Led Agent Lab</title>
+  <title>Support · CorrelAct</title>
   <link rel="stylesheet" href="/support.css" />
+  <link rel="stylesheet" href="/correlact-ui.css" />
 </head>
 <body>
   <header class="workspace-topbar">
     <div>
-      <p class="eyebrow">Human-Led Agent Lab</p>
+      <p class="eyebrow">CorrelAct</p>
       <h1>Support Workspace</h1>
     </div>
-    <div class="topbar-actions">
-      <a class="back-link" href="/crm/">CRM</a>
-      <a class="back-link" href="/billing/">Billing</a>
-      <a class="back-link" href="/">Back to Agent Lab</a>
-    </div>
+    <nav class="topbar-actions" aria-label="Workspace navigation">
+      <a href="/investigation/">Investigation</a>
+      <a href="/crm/">CRM</a>
+      <a href="/billing/">Billing</a>
+      <a href="/tasks/">Tasks</a>
+      <a href="/">CorrelAct</a>
+    </nav>
   </header>
 
   <main class="workspace-shell">
@@ -45,7 +48,7 @@
         </div>
 
         <div class="notice hidden" id="login-required">
-          Sign in to the main Agent Lab first, then return to this workspace.
+          Sign in to CorrelAct first, then return to this workspace.
         </div>
 
         <form id="case-form">

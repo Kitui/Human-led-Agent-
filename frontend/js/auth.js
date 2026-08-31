@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — login screen + shared browser session bootstrap */
+/* CorrelAct — login screen + shared browser session bootstrap */
 import {
   API_BASE,
   qs,

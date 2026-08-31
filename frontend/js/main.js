@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — entry point: routing, nav, boot */
+/* CorrelAct — entry point: routing, navigation, branding, and boot */
 import { qs, qsa, checkHealth } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
 import { renderActionPointsPage } from "./action-points.js";
@@ -12,6 +12,76 @@ import {
   hasValidSession, showLoginScreen, hideLoginScreen, initLoginForm,
   currentTenantIds, currentUsername, logout, restoreBrowserSession,
 } from "./auth.js";
+
+/* Load the shared design-system override after styles.css. Keeping it as a
+ * separate layer lets the standalone WebMCP workspaces use the same visual
+ * language without coupling their page-specific CSS to this SPA. */
+if (!document.querySelector('link[data-correlact-ui]')) {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "/correlact-ui.css";
+  link.dataset.correlactUi = "true";
+  document.head.appendChild(link);
+}
+
+function applyCorrelActBranding() {
+  document.title = "CorrelAct";
+
+  const brand = qs(".brand");
+  if (brand) brand.textContent = "CorrelAct";
+
+  const logo = qs(".logo");
+  if (logo) {
+    logo.setAttribute("aria-label", "CorrelAct");
+    logo.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="6" cy="12" r="2.4"/>
+        <circle cx="18" cy="6" r="2.4"/>
+        <circle cx="18" cy="18" r="2.4"/>
+        <path d="m8.2 10.9 7.5-3.8"/>
+        <path d="m8.2 13.1 7.5 3.8"/>
+      </svg>`;
+  }
+
+  const loginTitle = qs("#login-screen .modal-title");
+  if (loginTitle) loginTitle.textContent = "Sign in to CorrelAct";
+  const loginMessage = qs("#login-screen .modal-message");
+  if (loginMessage) loginMessage.textContent = "Sign in to your CorrelAct workspace to continue.";
+
+  const dashboardSubtitle = qs('[data-page="dashboard"] .subtitle');
+  if (dashboardSubtitle) {
+    dashboardSubtitle.textContent = "Monitor investigations, approvals, execution, and system quality across CorrelAct.";
+  }
+
+  const investigateSubtitle = qs('[data-page="investigate"] .subtitle');
+  if (investigateSubtitle) {
+    investigateSubtitle.textContent = "Describe an operational issue. CorrelAct gathers evidence and proposes a controlled next action.";
+  }
+
+  const actionsNav = qs('.nav-item[data-page="action-points"] span:last-child');
+  if (actionsNav) actionsNav.textContent = "Actions";
+  const actionsPage = qs('[data-page="action-points"]');
+  if (actionsPage) {
+    const heading = qs(".page-head h1", actionsPage);
+    const subtitle = qs(".page-head .subtitle", actionsPage);
+    const search = qs("#ap-search", actionsPage);
+    const newButtonLabel = qs("#ap-new-btn span", actionsPage);
+    const newButton = qs("#ap-new-btn", actionsPage);
+    if (heading) heading.textContent = "Actions";
+    if (subtitle) subtitle.textContent = "Track, review, and progress evidence-grounded actions proposed by CorrelAct.";
+    if (search) search.placeholder = "Search actions…";
+    if (newButtonLabel) newButtonLabel.textContent = "+ New Action";
+    if (newButton) newButton.title = "Actions are created by an investigation — see the Investigate workspace.";
+  }
+
+  const runsSearch = qs("#runs-search");
+  if (runsSearch) runsSearch.placeholder = "Search runs by ID, issue, or proposed action…";
+
+  const approvalsSubtitle = qs('[data-page="approvals"] .subtitle');
+  if (approvalsSubtitle) {
+    approvalsSubtitle.textContent = "Review CorrelAct-recommended actions before any consequential execution is allowed.";
+  }
+}
 
 /* ---------------- routing / nav ---------------- */
 const PAGE_RENDERERS = {
@@ -104,6 +174,7 @@ async function startApp() {
 
 /* ---------------- boot ---------------- */
 document.addEventListener("DOMContentLoaded", async () => {
+  applyCorrelActBranding();
   initMisc();
   initLoginForm(startApp);
 
