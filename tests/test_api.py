@@ -5,6 +5,15 @@ async def test_health(client):
     assert response.json()["status"] == "ok"
 
 
+async def test_clean_crm_workspace_url(client):
+    response = await client.get("/crm/", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert "CRM Workspace" in response.text
+    assert "/crm.css" in response.text
+    assert "/js/crm.js" in response.text
+
+
 async def test_invalid_tenant_is_rejected_before_agent_call(client, auth_headers):
     headers = await auth_headers("admin_user", "admin-pass-123")
 
