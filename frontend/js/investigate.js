@@ -32,7 +32,6 @@ export function renderStepper(status) {
       ${connector}
     `;
   }).join("");
-  // connectors need to sit between steps, not after the label column — fix layout via flex wrapper
   el.style.display = "flex";
 }
 
@@ -44,8 +43,11 @@ function renderActionPoint(run) {
   card.hidden = false;
 
   const status = (run.status || "").toLowerCase();
-  qs("#action-point-heading").textContent =
-    status === "awaiting_approval" ? "Action Point (Awaiting Approval)" : "Action Point";
+  qs("#action-point-heading").textContent = status === "awaiting_approval"
+    ? "Action Point (Awaiting Approval)"
+    : status === "approved"
+      ? "Action Point (Approved — Awaiting Execution)"
+      : "Action Point";
 
   const fields = qs("#ap-fields");
   fields.innerHTML = `
@@ -72,6 +74,11 @@ function renderActionPoint(run) {
     `;
     qs("#approve-btn").addEventListener("click", () => doApprove(run.run_id));
     qs("#reject-btn").addEventListener("click", () => doReject(run.run_id));
+  } else if (status === "approved") {
+    actions.innerHTML = `
+      <div class="result-note">Approved by a human. No external action has executed yet.</div>
+      <a class="btn btn-primary" href="/tasks/">Open Tasks Workspace</a>
+    `;
   } else if (status === "completed") {
     actions.innerHTML = `<div class="result-note">${escapeHtml(run.execution_result || "No execution was required for this action.")}</div>`;
   } else if (status === "rejected") {
@@ -83,11 +90,7 @@ function renderActionPoint(run) {
   }
 }
 
-/* ---------------- trace timeline ----------------
- * Renders backend-sourced trace events (run.trace, pending backend
- * approval — see proposal) merged with client-observed events (request
- * sent / response received / approval submitted), sorted by time.
- */
+/* ---------------- trace timeline ---------------- */
 function buildTraceEvents(run) {
   const events = [];
   (run.trace || []).forEach((e) => events.push({ ...e, source: "backend" }));
@@ -205,13 +208,18 @@ export async function doInvestigate() {
 }
 
 async function doApprove(runId) {
-  renderStepper("executing");
+  renderStepper("approved");
   addClientTraceEvent(runId, { kind: "client", label: "Approval submitted" });
   try {
     const run = await api(`/runs/${runId}/approve`, { method: "POST" });
     const merged = { ...loadHistory().find((r) => r.run_id === runId), ...run };
     merged._clientTrace = (merged._clientTrace || []).concat([
-      { kind: "client", label: `Execution finished — ${run.status.toUpperCase()}`, detail: run.error || "", timestamp: Date.now() },
+      {
+        kind: "client",
+        label: `Approval recorded — ${run.status.toUpperCase()}`,
+        detail: run.status === "approved" ? "External execution has not started." : "",
+        timestamp: Date.now(),
+      },
     ]);
     upsertHistory(merged);
     applyRunToInvestigateView(merged);
