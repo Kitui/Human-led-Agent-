@@ -15,7 +15,7 @@
 import {
   qs, qsa, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge,
   AGENT_NAME, startOfDay, fmtDuration, deltaFromYesterdayHtml, api,
-  showBanner, upsertHistory, getAllKnownRuns, deriveEvidence,
+  showBanner, upsertHistory, getAllKnownRuns,
 } from "./shared.js";
 
 const approvalsPageState = {
@@ -31,6 +31,53 @@ const approvalsPageState = {
 function findTraceEvent(run, labelPredicate) {
   return (run.trace || []).find((e) => labelPredicate(e.label));
 }
+
+/* Evidence for a human decision must stay separate from the later execution
+ * result. WebMCP-submitted runs attach explicit EVIDENCE-tagged Support/CRM/
+ * Billing findings. Older investigator runs still expose their read-tool
+ * results as "... result received" trace events. Write-tool results such as
+ * create_task are deliberately excluded here and remain in the Decision /
+ * execution outcome section instead. */
+function deriveApprovalEvidence(run) {
+  const bullets = [];
+
+  (run.trace || []).forEach((event) => {
+    if (event.tag === "EVIDENCE" && event.detail) {
+      const match = /^WebMCP (support|crm|billing) evidence attached$/.exec(event.label || "");
+      const source = match ? match[1].toUpperCase() : "SOURCE";
+      bullets.push(`${source}: ${event.detail}`);
+      return;
+    }
+
+    if (event.kind !== "mcp" || !event.detail || !/result received/.test(event.label || "")) return;
+
+    const sourceLabel = (event.label || "").replace(" result received", "");
+    try {
+      const parsed = JSON.parse(event.detail);
+      if (parsed.created) return; // execution outcome, not decision evidence
+      if (parsed.found && parsed.customer) {
+        const c = parsed.customer;
+        bullets.push(
+          `${sourceLabel}: ${c.name} — ${c.plan} plan, account ${c.account_status}, billing ${c.billing_status}, renewal ${c.renewal_status}` +
+          (c.renewal_value != null ? ` ($${Number(c.renewal_value).toLocaleString()})` : "")
+        );
+      } else if (parsed.found && parsed.case) {
+        const c = parsed.case;
+        bullets.push(`${sourceLabel}: ${c.case_id} — ${c.subject || c.customer_message || c.status}`);
+      } else if (parsed.found && parsed.invoice) {
+        const i = parsed.invoice;
+        bullets.push(`${sourceLabel}: ${i.invoice_id} — billed ${i.currency || ""} ${Number(i.billed_amount).toLocaleString()} vs contract ${Number(i.contract_amount).toLocaleString()}, dispute ${i.dispute_status}`);
+      } else if (parsed.error) {
+        bullets.push(`${sourceLabel}: ${parsed.error}`);
+      }
+    } catch (_) {
+      bullets.push(`${sourceLabel}: ${event.detail.slice(0, 140)}`);
+    }
+  });
+
+  return bullets;
+}
+
 function decisionKind(run) {
   if (findTraceEvent(run, (l) => l === "Execution approved by human reviewer")) return "approved";
   if (findTraceEvent(run, (l) => l === "Rejected by human reviewer")) return "rejected";
@@ -41,7 +88,7 @@ function decisionTimestamp(run) {
   return e ? new Date(e.timestamp).getTime() : null;
 }
 function reviewTimeSeconds(run) {
-  const generated = findTraceEvent(run, (l) => l === "Action point generated");
+  const generated = findTraceEvent(run, (l) => l === "Action point generated" || l === "WebMCP Action Point submitted");
   const decided = findTraceEvent(run, (l) => l === "Execution approved by human reviewer" || l === "Rejected by human reviewer");
   if (!generated || !decided) return null;
   return (new Date(decided.timestamp) - new Date(generated.timestamp)) / 1000;
@@ -128,14 +175,14 @@ function renderApprovalsStats(runs) {
 }
 
 // Statuses that represent a run which went through (or is in) human
-// review — i.e. its action point actually required approval. Runs that
-// never needed approval (auto-completed) or haven't reached a decision
-// point yet (new/investigating) are excluded.
-const APPROVAL_RELEVANT_STATUSES = ["awaiting_approval", "completed", "rejected", "failed"];
+// review — i.e. its action point actually required approval. A WebMCP run
+// stays APPROVED between the human decision and the separate WebMCP write.
+const APPROVAL_RELEVANT_STATUSES = ["awaiting_approval", "approved", "completed", "rejected", "failed"];
 
 function approvalStatusBadge(run) {
   const s = (run.status || "").toLowerCase();
   if (s === "awaiting_approval") return `<span class="badge badge-pending">PENDING</span>`;
+  if (s === "approved") return `<span class="badge badge-status-completed">APPROVED</span>`;
   if (s === "completed") return `<span class="badge badge-status-completed">APPROVED</span>`;
   if (s === "rejected") return `<span class="badge badge-status-rejected">REJECTED</span>`;
   if (s === "failed") return `<span class="badge badge-status-failed">FAILED</span>`;
@@ -257,8 +304,6 @@ async function submitApprovalDecision(runId, action) {
     });
     upsertHistory(run);
     approvalsPageState.runs = await getAllKnownRuns();
-    // Keep the panel open on this run so its new (read-only) decision state
-    // is visible immediately, instead of the panel closing on every decision.
     approvalsPageState.selectedRunId = runId;
     renderApprovalsPageBody();
   } catch (err) {
@@ -283,7 +328,7 @@ function renderApprovalDetailPanel() {
   grid.classList.add("has-detail");
 
   const ap = run.action_point;
-  const evidence = deriveEvidence(run);
+  const evidence = deriveApprovalEvidence(run);
   const status = (run.status || "").toLowerCase();
   const isPending = status === "awaiting_approval";
 
@@ -311,6 +356,7 @@ function renderApprovalDetailPanel() {
       <div class="detail-field-row"><span class="d-label">Outcome</span><span class="d-value">${approvalStatusBadge(run)}</span></div>
       <div class="detail-field-row"><span class="d-label">Decided At</span><span class="d-value">${decisionEvent ? fmtTime(decisionEvent.timestamp) : (run.updated_at ? fmtTime(run.updated_at) : "—")}</span></div>
       ${run.review_comment ? `<div class="detail-field-row"><span class="d-label">Comment</span><span class="d-value">${escapeHtml(run.review_comment)}</span></div>` : ""}
+      ${status === "approved" ? `<div class="detail-field-row"><span class="d-label">Execution</span><span class="d-value">Waiting for WebMCP create_task</span></div>` : ""}
       ${status === "failed" && run.error ? `<div class="detail-field-row"><span class="d-label">Error</span><span class="d-value">${escapeHtml(run.error)}</span></div>` : ""}
       ${status === "completed" && run.execution_result ? `<div class="detail-field-row"><span class="d-label">Result</span><span class="d-value">${escapeHtml(run.execution_result)}</span></div>` : ""}
     `;
