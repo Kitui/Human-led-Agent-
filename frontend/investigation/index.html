@@ -24,10 +24,11 @@
     <section class="intro-card">
       <div>
         <span class="pill">WebMCP orchestration</span>
-        <h2>Correlate evidence across business systems</h2>
+        <h2>Correlate evidence and hand control to a human</h2>
         <p>
-          This page exposes the Support, CRM, and Billing capabilities together so a WebMCP-aware
-          browser agent can investigate one operational issue using evidence from all three sources.
+          This page exposes Support, CRM, and Billing evidence together with a controlled Action Point
+          submission capability. The browser agent can investigate and propose work, but execution stays
+          behind Correlact's existing human approval gate.
         </p>
       </div>
       <div class="tool-status" id="webmcp-status">
@@ -51,6 +52,11 @@
         <span class="source-label">Billing</span>
         <code>get_invoice</code>
         <p>What invoice evidence explains the dispute or renewal hold?</p>
+      </article>
+      <article class="tool-card">
+        <span class="source-label">Correlact</span>
+        <code>submit_action_point</code>
+        <p>Persist one evidence-grounded proposal for human review. No external action is executed.</p>
       </article>
     </section>
 
@@ -82,14 +88,17 @@
 
       <aside class="card agent-card">
         <p class="eyebrow">Agent test</p>
-        <h3>Natural-language investigation</h3>
+        <h3>Investigate, then propose</h3>
         <p class="muted">With this page active in the Model Context Tool Inspector, ask:</p>
         <blockquote>
-          Investigate the ACME renewal issue in tenant_red. Use all relevant tools, correlate the
-          evidence, explain the root cause, and recommend the next action. Do not execute a write.
+          Investigate the ACME renewal issue for tenant_red. Use Support, CRM, and Billing tools to
+          gather evidence and determine the most likely cause. Then use submit_action_point to persist
+          one focused recommended action for human review. You may submit the proposal, but do not
+          execute any external write action.
         </blockquote>
-        <div class="scope-row"><span>Tools expected</span><strong>3 read-only</strong></div>
-        <div class="scope-row"><span>Human approval</span><strong>Before writes</strong></div>
+        <div class="scope-row"><span>Evidence tools</span><strong>3 read-only</strong></div>
+        <div class="scope-row"><span>Proposal tool</span><strong>Internal write only</strong></div>
+        <div class="scope-row"><span>Execution</span><strong>Human approval required</strong></div>
       </aside>
     </section>
 
