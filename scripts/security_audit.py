@@ -60,6 +60,8 @@ SAFE_GENERIC_PREFIXES = (
     "dummy-",
     "your-",
     "your_",
+    "use_",
+    "choose_",
 )
 SAFE_LOCAL_PASSWORDS = {"agent_lab", "postgres", "password", "pass"}
 SAFE_LOCAL_HOSTS = {"localhost", "127.0.0.1", "postgres", "db", "internal-host"}
