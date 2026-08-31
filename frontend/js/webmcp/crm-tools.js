@@ -4,9 +4,9 @@ let registered = false;
 
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
-  if (!session) throw new Error("Sign in to Human-Led Agent Lab before using CRM tools.");
+  if (!session) throw new Error("Sign in to CorrelAct before using CRM tools.");
   if (!session.tenantIds.includes(tenantId)) {
-    throw new Error(`You are not authorized for tenant ${tenantId}.`);
+    throw new Error(`You are not authorized for organization ${tenantId}.`);
   }
 }
 
@@ -30,7 +30,7 @@ export async function registerCrmWebMcpTools() {
   await document.modelContext.registerTool({
     name: "get_customer",
     title: "Get customer account",
-    description: "Read a customer account from the CRM workspace for an authorized tenant. Use this to check plan, account, billing, and renewal status before making an operational recommendation.",
+    description: "Read a customer account from the CRM workspace for an authorized organization. Use this to check plan, account, billing, and renewal status before making an operational recommendation.",
     inputSchema: {
       type: "object",
       properties: {
@@ -40,7 +40,7 @@ export async function registerCrmWebMcpTools() {
         },
         tenant_id: {
           type: "string",
-          description: "Authorized tenant workspace, for example tenant_red.",
+          description: "Authorized organization identifier, for example NorthStar.",
         },
       },
       required: ["customer_name", "tenant_id"],
