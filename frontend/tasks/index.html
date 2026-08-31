@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tasks · Correlact</title>
+  <link rel="stylesheet" href="/tasks.css" />
+</head>
+<body>
+  <header class="workspace-topbar">
+    <div>
+      <p class="eyebrow">Correlact</p>
+      <h1>Tasks Workspace</h1>
+    </div>
+    <nav class="topbar-actions" aria-label="Workspace navigation">
+      <a href="/investigation/">Investigation</a>
+      <a href="/support/">Support</a>
+      <a href="/crm/">CRM</a>
+      <a href="/billing/">Billing</a>
+      <a href="/">Agent Lab</a>
+    </nav>
+  </header>
+
+  <main class="workspace-shell">
+    <section class="intro-card">
+      <div>
+        <span class="pill">Human-gated WebMCP write</span>
+        <h2>Execute only what a human already approved</h2>
+        <p>
+          This workspace exposes one consequential WebMCP capability: <code>create_task</code>.
+          The backend accepts it only for a WebMCP Action Point whose status is already approved.
+          The browser agent cannot change the approved action, priority, or target team.
+        </p>
+      </div>
+      <div class="tool-status" id="webmcp-status">
+        <span class="status-dot"></span>
+        <span>Checking WebMCP…</span>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <article class="summary-card">
+        <span>Ready for execution</span>
+        <strong id="ready-count">0</strong>
+        <small>Human-approved WebMCP Action Points</small>
+      </article>
+      <article class="summary-card tool-summary">
+        <span>Exposed capability</span>
+        <code>create_task</code>
+        <small>Writes one approved GitHub task exactly once</small>
+      </article>
+      <article class="summary-card">
+        <span>Safety boundary</span>
+        <strong>Approved only</strong>
+        <small>Awaiting, rejected, and cross-tenant runs are blocked</small>
+      </article>
+    </section>
+
+    <section class="workspace-grid">
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Execution queue</p>
+            <h2>Approved tasks waiting to run</h2>
+          </div>
+          <label class="tenant-control" for="tenant-select">
+            <span>Tenant</span>
+            <select id="tenant-select"></select>
+          </label>
+        </div>
+
+        <div class="notice hidden" id="login-required">
+          Sign in to the Agent Lab first, then return to this workspace.
+        </div>
+        <div id="approved-runs" class="approved-runs"></div>
+        <div id="execution-result" class="execution-result hidden"></div>
+      </div>
+
+      <aside class="card agent-card">
+        <p class="eyebrow">Agent test</p>
+        <h2>WebMCP approved write</h2>
+        <p class="muted">
+          After approving a WebMCP Action Point in Correlact, keep this page active in the Model
+          Context Tool Inspector and ask the browser agent to execute that approved run.
+        </p>
+        <blockquote>
+          Execute the already-approved task for run RUN_ID in tenant_red for ACME. Use create_task.
+          Do not alter the approved action or create any additional work.
+        </blockquote>
+        <div class="scope-row"><span>Human approval</span><strong>Required first</strong></div>
+        <div class="scope-row"><span>External write</span><strong>1 task maximum</strong></div>
+        <div class="scope-row"><span>Idempotency</span><strong>Durable</strong></div>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="/js/tasks.js"></script>
+</body>
+</html>
