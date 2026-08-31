@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .auth import authenticate_user, create_access_token, get_current_user
+from .auth import (
+    ACCESS_TOKEN_EXPIRE,
+    SESSION_COOKIE_NAME,
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+)
 from .customers import lookup_customer
 from .db import get_db, init_db, seed_default_tenant_settings, seed_default_tenants, seed_demo_users
 from .evals_runner import list_eval_runs, run_eval_suite
@@ -104,6 +110,33 @@ class TenantSettingsUpdateRequest(BaseModel):
     # system_prompt_override actually changes) -- never accepted here.
 
 
+def _request_is_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip().lower()
+    return forwarded_proto == "https" or request.url.scheme == "https"
+
+
+def _set_browser_session_cookie(response: Response, token: str, request: Request) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=int(ACCESS_TOKEN_EXPIRE.total_seconds()),
+        httponly=True,
+        secure=_request_is_https(request),
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_browser_session_cookie(response: Response, request: Request) -> None:
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        secure=_request_is_https(request),
+        httponly=True,
+        samesite="lax",
+    )
+
+
 @app.get("/health")
 async def health() -> dict:
     return {
@@ -114,11 +147,47 @@ async def health() -> dict:
 
 
 @app.post("/auth/login", response_model=LoginResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)) -> LoginResponse:
+async def login(
+    request: LoginRequest,
+    response: Response,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> LoginResponse:
     user = await authenticate_user(db, request.username, request.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password.")
-    return LoginResponse(access_token=create_access_token(user), tenant_ids=user.tenant_ids)
+
+    token = create_access_token(user)
+    _set_browser_session_cookie(response, token, http_request)
+    return LoginResponse(access_token=token, tenant_ids=user.tenant_ids)
+
+
+@app.get("/auth/session")
+async def read_browser_session(
+    response: Response,
+    http_request: Request,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """Restore a browser tab from the shared HttpOnly login cookie.
+
+    A fresh bearer token is returned only to preserve the existing frontend
+    API wrapper while the cookie is what allows separate tabs/workspaces to
+    discover the same authenticated browser session.
+    """
+    token = create_access_token(current_user)
+    _set_browser_session_cookie(response, token, http_request)
+    return {
+        "username": current_user.username,
+        "tenant_ids": current_user.tenant_ids,
+        "access_token": token,
+        "token_type": "bearer",
+    }
+
+
+@app.post("/auth/logout")
+async def logout_browser(response: Response, http_request: Request) -> dict:
+    _clear_browser_session_cookie(response, http_request)
+    return {"status": "ok"}
 
 
 @app.get("/crm/customers/{customer_name}")
