@@ -45,6 +45,11 @@ from .tenants import (
     set_tenant_active,
     tenant_exists,
 )
+from .webmcp_tasks import (
+    approve_webmcp_action_point,
+    execute_webmcp_approved_task,
+    is_webmcp_action_point,
+)
 from .workflow import (
     GuardrailBlockedError,
     InvalidRunStateError,
@@ -112,6 +117,12 @@ class WebMcpActionPointRequest(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     target_team: str = Field(min_length=1, max_length=120)
     evidence: list[WebMcpEvidenceRequest] = Field(min_length=1, max_length=8)
+
+
+class WebMcpApprovedTaskRequest(BaseModel):
+    run_id: str = Field(min_length=1, max_length=120)
+    tenant_id: str = Field(min_length=1, max_length=60)
+    customer_name: str = Field(min_length=1, max_length=120)
 
 
 class ReviewDecisionRequest(BaseModel):
@@ -314,6 +325,38 @@ async def submit_webmcp_action_point(
     return run
 
 
+@app.post("/webmcp/tasks", response_model=WorkflowRun)
+async def execute_webmcp_task(
+    request: WebMcpApprovedTaskRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowRun:
+    tenant_id = request.tenant_id.strip()
+    if tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
+    try:
+        run = await get_run(db, request.run_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+
+    if run.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Run does not belong to this tenant.")
+
+    try:
+        return await execute_webmcp_approved_task(
+            db,
+            request.run_id,
+            request.customer_name,
+        )
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+    except InvalidRunStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.post("/investigate", response_model=WorkflowRun)
 async def investigate(
     request: InvestigationRequest,
@@ -390,6 +433,12 @@ async def approve(
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
 
     try:
+        if is_webmcp_action_point(run):
+            return await approve_webmcp_action_point(
+                db,
+                run_id,
+                comment=request.comment if request else None,
+            )
         return await approve_run(db, run_id, comment=request.comment if request else None)
     except RunNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Run not found.") from exc
