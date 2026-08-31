@@ -15,7 +15,9 @@ async def test_clean_support_workspace_url(client):
 
 
 def test_support_webmcp_tool_is_declared_read_only():
-    source = (ROOT / "frontend" / "js" / "webmcp" / "support-tools.js").read_text(encoding="utf-8")
+    source = (
+        ROOT / "frontend" / "js" / "webmcp" / "support-tools.js"
+    ).read_text(encoding="utf-8")
 
     assert "document.modelContext.registerTool" in source
     assert 'name: "get_case"' in source
@@ -23,3 +25,7 @@ def test_support_webmcp_tool_is_declared_read_only():
     assert 'required: ["customer_name", "tenant_id"]' in source
     assert 'source: "support"' in source
     assert 'case_id: "CASE-ACME-8841"' in source
+    assert 'tenant_id: "NorthStar"' in source
+    assert 'tenant_id: "Neptune"' in source
+    assert "tenant_red" not in source
+    assert "tenant_green" not in source
