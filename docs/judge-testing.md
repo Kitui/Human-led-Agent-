@@ -2,11 +2,15 @@
 
 Correlact is designed to be tested with a WebMCP-capable browser agent. The primary path for challenge judging is ChatGPT's in-app browser. The Model Context Tool Inspector is optional and exists only as a manual developer/debug verification path.
 
+## Before testing
+
+Sign in to Correlact at `/` using the challenge demo credentials supplied with the submission. Authentication is shared across the Correlact workspaces through the same browser session, so remain signed in while moving between Investigation, Approvals, and Tasks.
+
 ## Recommended live test
 
 ### 1. Investigate
 
-Open `/investigation/` in a WebMCP-capable browser agent and use:
+Open `/investigation/` in the same WebMCP-capable browser session and use:
 
 ```text
 Investigate the ACME renewal issue for tenant_red. Use Support, CRM, and Billing tools to gather evidence and determine the most likely cause. Then use submit_action_point to persist one focused recommended action for human review. You may submit the proposal, but do not execute any external write action.
@@ -29,7 +33,7 @@ Expected outcome: the run stops at `approved`. Approval authorizes execution but
 
 ### 3. Controlled execution
 
-Open `/tasks/` in a WebMCP-capable browser agent and use the full approved run ID:
+Open `/tasks/` in the same WebMCP-capable browser session and use the full approved run ID:
 
 ```text
 Execute the already-approved ACME task for run RUN_ID in tenant_red. Use create_task. Do not alter the approved action or create any additional work.
