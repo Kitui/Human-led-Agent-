@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Investigation Hub · Correlact</title>
+  <link rel="stylesheet" href="/investigation.css" />
+</head>
+<body>
+  <header class="workspace-topbar">
+    <div>
+      <p class="eyebrow">Correlact</p>
+      <h1>Investigation Hub</h1>
+    </div>
+    <nav class="topbar-actions" aria-label="Workspace navigation">
+      <a href="/support/">Support</a>
+      <a href="/crm/">CRM</a>
+      <a href="/billing/">Billing</a>
+      <a href="/">Agent Lab</a>
+    </nav>
+  </header>
+
+  <main class="workspace-shell">
+    <section class="intro-card">
+      <div>
+        <span class="pill">WebMCP orchestration</span>
+        <h2>Correlate evidence across business systems</h2>
+        <p>
+          This page exposes the Support, CRM, and Billing capabilities together so a WebMCP-aware
+          browser agent can investigate one operational issue using evidence from all three sources.
+        </p>
+      </div>
+      <div class="tool-status" id="webmcp-status">
+        <span class="status-dot"></span>
+        <span>Checking WebMCP…</span>
+      </div>
+    </section>
+
+    <section class="tool-grid" aria-label="Available WebMCP tools">
+      <article class="tool-card">
+        <span class="source-label">Support</span>
+        <code>get_case</code>
+        <p>What did the customer report and how is the case being handled?</p>
+      </article>
+      <article class="tool-card">
+        <span class="source-label">CRM</span>
+        <code>get_customer</code>
+        <p>What is the account, billing, and renewal state?</p>
+      </article>
+      <article class="tool-card">
+        <span class="source-label">Billing</span>
+        <code>get_invoice</code>
+        <p>What invoice evidence explains the dispute or renewal hold?</p>
+      </article>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <p class="eyebrow">Human verification</p>
+        <h3>Load the same evidence manually</h3>
+        <p class="muted">
+          This does not generate a diagnosis. It only loads the three source records so you can
+          verify what the browser agent will receive through WebMCP.
+        </p>
+
+        <div class="notice hidden" id="login-required">
+          Sign in to the Agent Lab first, then return to this workspace.
+        </div>
+
+        <form id="investigation-form">
+          <label for="tenant-select">Tenant</label>
+          <select id="tenant-select" required></select>
+
+          <label for="customer-name">Customer name</label>
+          <div class="search-row">
+            <input id="customer-name" placeholder="e.g. ACME" autocomplete="off" required />
+            <button type="submit" id="load-btn">Load evidence</button>
+          </div>
+        </form>
+        <div class="error hidden" id="investigation-error"></div>
+      </div>
+
+      <aside class="card agent-card">
+        <p class="eyebrow">Agent test</p>
+        <h3>Natural-language investigation</h3>
+        <p class="muted">With this page active in the Model Context Tool Inspector, ask:</p>
+        <blockquote>
+          Investigate the ACME renewal issue in tenant_red. Use all relevant tools, correlate the
+          evidence, explain the root cause, and recommend the next action. Do not execute a write.
+        </blockquote>
+        <div class="scope-row"><span>Tools expected</span><strong>3 read-only</strong></div>
+        <div class="scope-row"><span>Human approval</span><strong>Before writes</strong></div>
+      </aside>
+    </section>
+
+    <section class="evidence-section hidden" id="evidence-section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Source evidence</p>
+          <h3>Evidence returned from the three systems</h3>
+        </div>
+        <span class="evidence-badge">Evidence only · no agent diagnosis</span>
+      </div>
+
+      <div class="evidence-grid">
+        <article class="evidence-card">
+          <div class="evidence-card-head"><span>Support</span><code>get_case</code></div>
+          <dl id="support-evidence"></dl>
+        </article>
+        <article class="evidence-card">
+          <div class="evidence-card-head"><span>CRM</span><code>get_customer</code></div>
+          <dl id="crm-evidence"></dl>
+        </article>
+        <article class="evidence-card">
+          <div class="evidence-card-head"><span>Billing</span><code>get_invoice</code></div>
+          <dl id="billing-evidence"></dl>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/investigation.js"></script>
+</body>
+</html>
