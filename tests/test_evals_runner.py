@@ -11,7 +11,7 @@ def test_eval_suite_run_tolerates_cases_persisted_before_category_existed():
     GET /evals/runs must still load that old history instead of 500ing."""
     old_case = {
         "name": "an old case",
-        "tenant_id": "tenant_red",
+        "tenant_id": "NorthStar",
         "input": "some issue",
         "expected_outcome": "action_point",
         "passed": True,
@@ -33,7 +33,7 @@ def test_eval_suite_run_tolerates_cases_persisted_before_category_existed():
 def _run(*, trace=None) -> WorkflowRun:
     return WorkflowRun(
         run_id="eval-test-run",
-        tenant_id="tenant_red",
+        tenant_id="NorthStar",
         issue="test issue",
         action_point=ActionPoint(
             title="Test action",
@@ -76,7 +76,7 @@ def test_eval_parses_found_customer_tool_result():
         {
             "name": "customer found",
             "category": "Customer Evidence",
-            "tenant_id": "tenant_red",
+            "tenant_id": "NorthStar",
             "input": "Investigate ACME.",
             "expected_outcome": "action_point",
             "expected_priority": "high",
@@ -92,14 +92,14 @@ def test_eval_parses_found_customer_tool_result():
     assert result.actual_tool_result == "FOUND"
 
 
-def test_eval_parses_cross_tenant_denial():
+def test_eval_parses_cross_organization_denial():
     run = _run(trace=_mcp_trace({"found": False, "error": "ACCESS_DENIED"}))
 
     result = _evaluate_action_point(
         {
-            "name": "cross tenant",
+            "name": "cross organization",
             "category": "Tenant Controls",
-            "tenant_id": "tenant_red",
+            "tenant_id": "NorthStar",
             "input": "Investigate GreenMart.",
             "expected_outcome": "action_point",
             "expects_tool_call": True,
@@ -119,7 +119,7 @@ def test_eval_fails_unnecessary_customer_tool_call():
         {
             "name": "no customer expected",
             "category": "Operational Judgment",
-            "tenant_id": "tenant_red",
+            "tenant_id": "NorthStar",
             "input": "The printer is out of paper.",
             "expected_outcome": "action_point",
             "expected_priority": "high",
