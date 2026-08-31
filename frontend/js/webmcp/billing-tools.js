@@ -6,7 +6,7 @@ const REFERENCE_INVOICES = [
   {
     invoice_id: "INV-ACME-2026-08",
     customer_name: "ACME",
-    tenant_id: "tenant_red",
+    tenant_id: "NorthStar",
     currency: "USD",
     contract_amount: 120000,
     billed_amount: 126000,
@@ -21,7 +21,7 @@ const REFERENCE_INVOICES = [
   {
     invoice_id: "INV-GREENMART-2026-08",
     customer_name: "GreenMart",
-    tenant_id: "tenant_green",
+    tenant_id: "Neptune",
     currency: "USD",
     contract_amount: 25000,
     billed_amount: 25000,
@@ -41,9 +41,9 @@ function normalizeCustomerName(value) {
 
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
-  if (!session) throw new Error("Sign in to Human-Led Agent Lab before using Billing tools.");
+  if (!session) throw new Error("Sign in to CorrelAct before using Billing tools.");
   if (!session.tenantIds.includes(tenantId)) {
-    throw new Error(`You are not authorized for tenant ${tenantId}.`);
+    throw new Error(`You are not authorized for organization ${tenantId}.`);
   }
 }
 
@@ -67,7 +67,7 @@ export async function fetchInvoice(customerName, tenantId) {
     (item) => normalizeCustomerName(item.customer_name) === name,
   );
   if (existsElsewhere) {
-    throw new Error("Invoice is not available in this tenant.");
+    throw new Error("Invoice is not available in this organization.");
   }
 
   return { found: false, error: "NOT_FOUND" };
@@ -82,7 +82,7 @@ export async function registerBillingWebMcpTools() {
   await document.modelContext.registerTool({
     name: "get_invoice",
     title: "Get customer invoice",
-    description: "Read the current customer invoice from the Billing workspace for an authorized tenant. Use this to verify billed amount, contract amount, dispute state, variance, and whether billing is holding renewal.",
+    description: "Read the current customer invoice from the Billing workspace for an authorized organization. Use this to verify billed amount, contract amount, dispute state, variance, and whether billing is holding renewal.",
     inputSchema: {
       type: "object",
       properties: {
@@ -92,7 +92,7 @@ export async function registerBillingWebMcpTools() {
         },
         tenant_id: {
           type: "string",
-          description: "Authorized tenant workspace, for example tenant_red.",
+          description: "Authorized organization identifier, for example NorthStar.",
         },
       },
       required: ["customer_name", "tenant_id"],
