@@ -30,8 +30,8 @@
         <p>
           This workspace exposes one consequential WebMCP capability: <code>create_task</code>.
           It accepts approved CorrelAct actions from both the main Investigate workspace and the
-          WebMCP Investigation Hub. The browser agent cannot change the approved action, priority,
-          target team, or customer scope.
+          WebMCP Investigation Workspace. The browser agent cannot change the approved action, priority,
+          target team, organization, or customer scope.
         </p>
       </div>
       <div class="tool-status" id="webmcp-status">
@@ -54,7 +54,7 @@
       <article class="summary-card">
         <span>Safety boundary</span>
         <strong>Approved only</strong>
-        <small>Awaiting, rejected, cross-tenant, and customer-mismatch runs are blocked</small>
+        <small>Awaiting, rejected, cross-organization, and customer-mismatch runs are blocked</small>
       </article>
     </section>
 
@@ -66,7 +66,7 @@
             <h2>Approved tasks waiting to run</h2>
           </div>
           <label class="tenant-control" for="tenant-select">
-            <span>Tenant</span>
+            <span>Organization</span>
             <select id="tenant-select"></select>
           </label>
         </div>
@@ -87,7 +87,7 @@
           run. The Model Context Tool Inspector remains optional for manual developer verification.
         </p>
         <blockquote>
-          Execute the already-approved ACME task for run RUN_ID in tenant_red. Use create_task.
+          Execute the already-approved ACME task for run RUN_ID in the NorthStar organization. Use create_task.
           Do not alter the approved action or create any additional work.
         </blockquote>
         <div class="scope-row"><span>Human approval</span><strong>Required first</strong></div>

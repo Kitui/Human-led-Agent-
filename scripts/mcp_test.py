@@ -41,7 +41,8 @@ You investigate customer issues.
 If a customer is mentioned, use the get_customer
 MCP tool before answering.
 
-Always pass the tenant ID provided by the user.
+Always pass the organization identifier provided by the user
+through the tool's tenant_id compatibility field.
 """,
             mcp_servers=[
                 server,
@@ -51,7 +52,8 @@ Always pass the tenant ID provided by the user.
         result = await Runner.run(
             agent,
             """
-Tenant ID: tenant_red
+Organization: NorthStar
+Internal tenant_id: NorthStar
 
 ACME says their renewal is blocked.
 """

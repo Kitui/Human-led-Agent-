@@ -32,7 +32,9 @@ def test_investigation_workspace_registers_all_four_webmcp_tools():
 
 
 def test_submit_action_point_tool_is_review_only_not_external_execution():
-    source = (ROOT / "frontend" / "js" / "webmcp" / "action-point-tools.js").read_text(encoding="utf-8")
+    source = (
+        ROOT / "frontend" / "js" / "webmcp" / "action-point-tools.js"
+    ).read_text(encoding="utf-8")
 
     assert 'name: "submit_action_point"' in source
     assert "readOnlyHint: false" in source
@@ -41,7 +43,7 @@ def test_submit_action_point_tool_is_review_only_not_external_execution():
     assert "does not execute any external action" in source
 
 
-def _action_point_payload(tenant_id="tenant_red"):
+def _action_point_payload(tenant_id="NorthStar"):
     return {
         "tenant_id": tenant_id,
         "issue": "ACME renewal is blocked after an invoice dispute.",
@@ -78,12 +80,15 @@ async def test_webmcp_action_point_submission_requires_auth(client):
     assert response.status_code == 401
 
 
-async def test_webmcp_action_point_submission_enforces_tenant_scope(client, auth_headers):
-    headers = await auth_headers("red_user", "red-pass-123")
+async def test_webmcp_action_point_submission_enforces_organization_scope(
+    client,
+    auth_headers,
+):
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
 
     response = await client.post(
         "/webmcp/action-points",
-        json=_action_point_payload("tenant_green"),
+        json=_action_point_payload("Neptune"),
         headers=headers,
     )
 
@@ -91,8 +96,11 @@ async def test_webmcp_action_point_submission_enforces_tenant_scope(client, auth
     assert response.json()["detail"] == "Not authorized for this tenant."
 
 
-async def test_webmcp_action_point_is_persisted_awaiting_human_approval(client, auth_headers):
-    headers = await auth_headers("red_user", "red-pass-123")
+async def test_webmcp_action_point_is_persisted_awaiting_human_approval(
+    client,
+    auth_headers,
+):
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
 
     response = await client.post(
         "/webmcp/action-points",
@@ -102,12 +110,15 @@ async def test_webmcp_action_point_is_persisted_awaiting_human_approval(client, 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["tenant_id"] == "tenant_red"
+    assert body["tenant_id"] == "NorthStar"
     assert body["status"] == "awaiting_approval"
     assert body["action_point"]["requires_human_approval"] is True
     assert body["action_point"]["priority"] == "high"
     assert body["action_point"]["target_team"] == "Billing Operations"
-    assert any(event["label"] == "WebMCP Action Point submitted" for event in body["trace"])
+    assert any(
+        event["label"] == "WebMCP Action Point submitted"
+        for event in body["trace"]
+    )
     assert sum(event["tag"] == "EVIDENCE" for event in body["trace"]) == 3
 
     run_response = await client.get(f"/runs/{body['run_id']}", headers=headers)

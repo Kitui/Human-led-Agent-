@@ -32,9 +32,13 @@ from agent_lab.db_models import Base
 # Static credentials are test fixtures only. Production/application startup
 # never imports or falls back to these values.
 TEST_DEMO_USERS = [
-    ("red_user", "red-pass-123", ["tenant_red"]),
-    ("green_user", "green-pass-123", ["tenant_green"]),
-    ("admin_user", "admin-pass-123", ["tenant_red", "tenant_green"]),
+    ("user@northstar.com", "northstar-test-pass", ["NorthStar"]),
+    ("user@neptune.com", "neptune-test-pass", ["Neptune"]),
+    (
+        "admin@correlact.com",
+        "correlact-admin-test-pass",
+        ["NorthStar", "Neptune"],
+    ),
 ]
 
 
@@ -43,8 +47,8 @@ async def _schema():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     # CI starts a brand-new, empty Postgres and never runs the app's lifespan.
-    # Seed explicit test-only identities and the same reference tenant/customer
-    # data that the application uses.
+    # Seed explicit test-only identities and the same reference organization /
+    # customer data that the application uses.
     await seed_demo_users(TEST_DEMO_USERS)
     await seed_default_tenants()
     await seed_default_customers()
@@ -80,7 +84,10 @@ async def client():
 @pytest_asyncio.fixture
 async def auth_headers(client):
     async def _headers(username: str, password: str) -> dict[str, str]:
-        response = await client.post("/auth/login", json={"username": username, "password": password})
+        response = await client.post(
+            "/auth/login",
+            json={"username": username, "password": password},
+        )
         token = response.json()["access_token"]
         return {"Authorization": f"Bearer {token}"}
 

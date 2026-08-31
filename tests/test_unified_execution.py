@@ -14,7 +14,7 @@ async def _persist_main_investigate_run(db_session) -> WorkflowRun:
     now = datetime.now(timezone.utc)
     run = WorkflowRun(
         run_id=str(uuid.uuid4()),
-        tenant_id="tenant_red",
+        tenant_id="NorthStar",
         issue="ACME says their invoice amount is wrong and renewal is blocked.",
         status=RunStatus.AWAITING_APPROVAL,
         step_count=2,
@@ -45,7 +45,7 @@ async def _persist_main_investigate_run(db_session) -> WorkflowRun:
                         "found": True,
                         "customer": {
                             "name": "ACME",
-                            "tenant_id": "tenant_red",
+                            "tenant_id": "NorthStar",
                             "plan": "Enterprise",
                             "account_status": "active",
                             "renewal_value": 120000,
@@ -75,7 +75,7 @@ async def test_main_investigate_approval_stops_before_external_execution(
     auth_headers,
     db_session,
 ):
-    headers = await auth_headers("red_user", "red-pass-123")
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     run = await _persist_main_investigate_run(db_session)
 
     response = await client.post(
@@ -97,7 +97,7 @@ async def test_main_investigate_approval_stops_before_external_execution(
 
     queue = await client.get(
         "/runs",
-        params={"status": "approved", "tenant_id": "tenant_red"},
+        params={"status": "approved", "tenant_id": "NorthStar"},
         headers=headers,
     )
     assert queue.status_code == 200
@@ -110,10 +110,14 @@ async def test_main_investigate_approved_run_uses_same_customer_boundary_and_tas
     db_session,
     monkeypatch,
 ):
-    headers = await auth_headers("red_user", "red-pass-123")
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     run = await _persist_main_investigate_run(db_session)
 
-    approved = await client.post(f"/runs/{run.run_id}/approve", json={}, headers=headers)
+    approved = await client.post(
+        f"/runs/{run.run_id}/approve",
+        json={},
+        headers=headers,
+    )
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
 
@@ -121,7 +125,7 @@ async def test_main_investigate_approved_run_uses_same_customer_boundary_and_tas
         "/webmcp/tasks",
         json={
             "run_id": run.run_id,
-            "tenant_id": "tenant_red",
+            "tenant_id": "NorthStar",
             "customer_name": "GreenMart",
         },
         headers=headers,
@@ -149,12 +153,18 @@ async def test_main_investigate_approved_run_uses_same_customer_boundary_and_tas
             True,
         )
 
-    monkeypatch.setattr("agent_lab.webmcp_tasks._get_or_create_task", fake_get_or_create_task)
-    monkeypatch.setattr("agent_lab.webmcp_tasks.GitHubTaskClient.from_env", lambda: object())
+    monkeypatch.setattr(
+        "agent_lab.webmcp_tasks._get_or_create_task",
+        fake_get_or_create_task,
+    )
+    monkeypatch.setattr(
+        "agent_lab.webmcp_tasks.GitHubTaskClient.from_env",
+        lambda: object(),
+    )
 
     payload = {
         "run_id": run.run_id,
-        "tenant_id": "tenant_red",
+        "tenant_id": "NorthStar",
         "customer_name": "ACME",
     }
     executed = await client.post("/webmcp/tasks", json=payload, headers=headers)
@@ -176,14 +186,21 @@ async def test_main_investigate_approved_run_uses_same_customer_boundary_and_tas
 
 
 def test_main_investigate_frontend_routes_approved_runs_to_tasks_workspace():
-    investigate_source = (ROOT / "frontend" / "js" / "investigate.js").read_text(encoding="utf-8")
-    tasks_source = (ROOT / "frontend" / "js" / "tasks.js").read_text(encoding="utf-8")
+    investigate_source = (ROOT / "frontend" / "js" / "investigate.js").read_text(
+        encoding="utf-8"
+    )
+    tasks_source = (ROOT / "frontend" / "js" / "tasks.js").read_text(
+        encoding="utf-8"
+    )
 
-    approve_section = investigate_source.split("async function doApprove", 1)[1].split("async function doReject", 1)[0]
+    approve_section = investigate_source.split("async function doApprove", 1)[1].split(
+        "async function doReject",
+        1,
+    )[0]
     assert 'renderStepper("approved")' in approve_section
     assert 'renderStepper("executing")' not in approve_section
     assert "Open Tasks Workspace" in investigate_source
 
     assert "renderRuns(runs)" in tasks_source
-    assert "Human-approved Correlact Action Points" not in tasks_source  # copy belongs to HTML, not filtering logic
+    assert "Human-approved Correlact Action Points" not in tasks_source
     assert "const webmcpRuns = runs.filter" not in tasks_source

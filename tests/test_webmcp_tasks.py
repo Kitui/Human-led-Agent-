@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _action_point_payload(tenant_id="tenant_red"):
+def _action_point_payload(tenant_id="NorthStar"):
     return {
         "tenant_id": tenant_id,
         "issue": "ACME renewal is blocked after an invoice dispute.",
@@ -56,7 +56,9 @@ async def test_clean_tasks_workspace_url(client):
 
 
 def test_tasks_workspace_registers_write_tool_and_calls_controlled_backend():
-    source = (ROOT / "frontend" / "js" / "webmcp" / "task-tools.js").read_text(encoding="utf-8")
+    source = (
+        ROOT / "frontend" / "js" / "webmcp" / "task-tools.js"
+    ).read_text(encoding="utf-8")
 
     assert 'name: "create_task"' in source
     assert "readOnlyHint: false" in source
@@ -66,8 +68,12 @@ def test_tasks_workspace_registers_write_tool_and_calls_controlled_backend():
 
 
 def test_tasks_workspace_refreshes_after_webmcp_execution():
-    tool_source = (ROOT / "frontend" / "js" / "webmcp" / "task-tools.js").read_text(encoding="utf-8")
-    workspace_source = (ROOT / "frontend" / "js" / "tasks.js").read_text(encoding="utf-8")
+    tool_source = (
+        ROOT / "frontend" / "js" / "webmcp" / "task-tools.js"
+    ).read_text(encoding="utf-8")
+    workspace_source = (ROOT / "frontend" / "js" / "tasks.js").read_text(
+        encoding="utf-8"
+    )
 
     assert 'export const TASK_EXECUTED_EVENT = "correlact:task-executed"' in tool_source
     assert "notifyTaskExecuted(result);" in tool_source
@@ -86,8 +92,11 @@ def test_approval_evidence_excludes_task_execution_results():
     assert "Waiting for WebMCP create_task" in source
 
 
-async def test_webmcp_action_point_approval_defers_external_execution(client, auth_headers):
-    headers = await auth_headers("red_user", "red-pass-123")
+async def test_webmcp_action_point_approval_defers_external_execution(
+    client,
+    auth_headers,
+):
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     submitted = await _submit_webmcp_action_point(client, headers)
 
     response = await client.post(
@@ -109,14 +118,14 @@ async def test_webmcp_action_point_approval_defers_external_execution(client, au
 
 
 async def test_webmcp_create_task_rejects_unapproved_run(client, auth_headers):
-    headers = await auth_headers("red_user", "red-pass-123")
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     submitted = await _submit_webmcp_action_point(client, headers)
 
     response = await client.post(
         "/webmcp/tasks",
         json={
             "run_id": submitted["run_id"],
-            "tenant_id": "tenant_red",
+            "tenant_id": "NorthStar",
             "customer_name": "ACME",
         },
         headers=headers,
@@ -126,16 +135,23 @@ async def test_webmcp_create_task_rejects_unapproved_run(client, auth_headers):
     assert "Human approval is required first" in response.json()["detail"]
 
 
-async def test_webmcp_create_task_enforces_customer_evidence_boundary(client, auth_headers):
-    headers = await auth_headers("red_user", "red-pass-123")
+async def test_webmcp_create_task_enforces_customer_evidence_boundary(
+    client,
+    auth_headers,
+):
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     submitted = await _submit_webmcp_action_point(client, headers)
-    await client.post(f"/runs/{submitted['run_id']}/approve", json={}, headers=headers)
+    await client.post(
+        f"/runs/{submitted['run_id']}/approve",
+        json={},
+        headers=headers,
+    )
 
     response = await client.post(
         "/webmcp/tasks",
         json={
             "run_id": submitted["run_id"],
-            "tenant_id": "tenant_red",
+            "tenant_id": "NorthStar",
             "customer_name": "GreenMart",
         },
         headers=headers,
@@ -145,10 +161,18 @@ async def test_webmcp_create_task_enforces_customer_evidence_boundary(client, au
     assert "does not match the CRM evidence" in response.json()["detail"]
 
 
-async def test_webmcp_create_task_executes_approved_scope_once(client, auth_headers, monkeypatch):
-    headers = await auth_headers("red_user", "red-pass-123")
+async def test_webmcp_create_task_executes_approved_scope_once(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     submitted = await _submit_webmcp_action_point(client, headers)
-    approved = await client.post(f"/runs/{submitted['run_id']}/approve", json={}, headers=headers)
+    approved = await client.post(
+        f"/runs/{submitted['run_id']}/approve",
+        json={},
+        headers=headers,
+    )
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
 
@@ -172,12 +196,18 @@ async def test_webmcp_create_task_executes_approved_scope_once(client, auth_head
             True,
         )
 
-    monkeypatch.setattr("agent_lab.webmcp_tasks._get_or_create_task", fake_get_or_create_task)
-    monkeypatch.setattr("agent_lab.webmcp_tasks.GitHubTaskClient.from_env", lambda: object())
+    monkeypatch.setattr(
+        "agent_lab.webmcp_tasks._get_or_create_task",
+        fake_get_or_create_task,
+    )
+    monkeypatch.setattr(
+        "agent_lab.webmcp_tasks.GitHubTaskClient.from_env",
+        lambda: object(),
+    )
 
     payload = {
         "run_id": submitted["run_id"],
-        "tenant_id": "tenant_red",
+        "tenant_id": "NorthStar",
         "customer_name": "ACME",
     }
     response = await client.post("/webmcp/tasks", json=payload, headers=headers)

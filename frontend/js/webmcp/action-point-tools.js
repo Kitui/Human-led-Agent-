@@ -4,9 +4,9 @@ let registered = false;
 
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
-  if (!session) throw new Error("Sign in to Correlact before submitting an Action Point.");
+  if (!session) throw new Error("Sign in to CorrelAct before submitting a Proposed Action.");
   if (!session.tenantIds.includes(tenantId)) {
-    throw new Error(`You are not authorized for tenant ${tenantId}.`);
+    throw new Error(`You are not authorized for organization ${tenantId}.`);
   }
 }
 
@@ -29,14 +29,14 @@ export async function registerActionPointWebMcpTool() {
 
   await document.modelContext.registerTool({
     name: "submit_action_point",
-    title: "Submit Action Point for human review",
-    description: "Persist a proposed Action Point in Correlact after gathering evidence. This creates an awaiting-approval record only and does not execute any external action. The approved execution path creates one internal task for the target team, so recommend one focused task and cite the evidence that supports it.",
+    title: "Submit Proposed Action for human review",
+    description: "Persist a Proposed Action in CorrelAct after gathering evidence. This creates an awaiting-approval record only and does not execute any external action. The approved execution path creates one internal task for the target team, so recommend one focused task and cite the evidence that supports it.",
     inputSchema: {
       type: "object",
       properties: {
         tenant_id: {
           type: "string",
-          description: "Authorized tenant workspace, for example tenant_red.",
+          description: "Authorized organization identifier, for example NorthStar.",
         },
         issue: {
           type: "string",
@@ -44,7 +44,7 @@ export async function registerActionPointWebMcpTool() {
         },
         title: {
           type: "string",
-          description: "Short Action Point title.",
+          description: "Short Proposed Action title.",
         },
         issue_type: {
           type: "string",

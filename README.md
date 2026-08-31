@@ -2,7 +2,7 @@
 
 **Human-led operational investigation and controlled execution through WebMCP.**
 
-CorrelAct helps an agent correlate evidence across operational systems, propose one focused next action, and execute consequential work only after a human has explicitly approved it. The product combines browser-native WebMCP tools, tenant isolation, human approval, durable idempotency, traces, evaluation gates, and a FastAPI/PostgreSQL backend.
+CorrelAct helps an agent correlate evidence across operational systems, propose one focused next action, and execute consequential work only after a human has explicitly approved it. The product combines browser-native WebMCP tools, organization isolation, human approval, durable idempotency, traces, evaluation gates, and a FastAPI/PostgreSQL backend.
 
 ## Why CorrelAct
 
@@ -11,29 +11,43 @@ Operational issues rarely live in one system. A renewal problem may begin as a S
 The trust model is deliberately asymmetric:
 
 ```text
-Read evidence freely within the authenticated tenant
-                    ↓
-          Correlate and investigate
-                    ↓
-        Propose one focused action
-                    ↓
-             HUMAN REVIEW
-              ↙          ↘
-          Reject         Approve
-            ↓               ↓
-       No external      Execution becomes
-          write         eligible in Tasks
-                            ↓
-                     create_task
-                            ↓
-                   Protected backend
-                            ↓
-                     GitHub Issue
-                            ↓
-                  Auditable completion
+Read evidence freely within the authenticated organization
+                         ↓
+               Correlate and investigate
+                         ↓
+             Propose one focused action
+                         ↓
+                  HUMAN REVIEW
+                   ↙          ↘
+               Reject         Approve
+                 ↓               ↓
+            No external      Execution becomes
+               write         eligible in Tasks
+                                 ↓
+                          create_task
+                                 ↓
+                        Protected backend
+                                 ↓
+                          GitHub Issue
+                                 ↓
+                       Auditable completion
 ```
 
 **Approval does not execute.** It only changes the run into an approved state. The external write happens later through the protected Tasks execution boundary.
+
+## Reference organizations
+
+The challenge demo uses two separate CorrelAct organizations so tenant isolation remains visible without confusing customers with platform accounts:
+
+| Organization | Demo user | Reference customer |
+| --- | --- | --- |
+| **NorthStar** | `user@northstar.com` | ACME |
+| **Neptune** | `user@neptune.com` | GreenMart |
+| Both | `admin@correlact.com` | Administrative access to both organizations |
+
+Passwords are never committed to the repository. Demo accounts are disabled by default and, when intentionally enabled, require environment-supplied passwords of at least 16 characters.
+
+The backend retains the established internal field name `tenant_id` as an API/schema compatibility contract. Product-facing surfaces call this boundary an **Organization**.
 
 ## WebMCP Challenge work
 
@@ -47,11 +61,12 @@ Challenge work includes:
 - Investigation workspace that exposes the three evidence sources together.
 - `submit_action_point`, which persists one evidence-grounded proposal for human review without performing an external write.
 - Tasks workspace with `create_task`, which can execute only an already-approved CorrelAct action.
-- Server-enforced tenant and customer matching across browser-agent execution.
+- Server-enforced organization and customer matching across browser-agent execution.
 - Durable idempotency so repeated execution requests create one external task.
 - Shared authenticated browser sessions across CorrelAct workspaces.
 - Immediate Tasks workspace refresh after successful WebMCP execution.
 - Responsive CorrelAct design system, traces, audit presentation, and challenge-focused regression coverage.
+- Public-release identity migration from the original learning labels to NorthStar/Neptune while preserving existing runs, users, customers, settings, traces, execution records, and eval history.
 
 The existing internal field and tool name `action_point` / `submit_action_point` are retained as compatibility contracts. The product-facing language is **Actions** and **Proposed Action**.
 
@@ -67,7 +82,7 @@ The existing internal field and tool name `action_point` / `submit_action_point`
 | **Tasks** | Execute approved work | `create_task` | Constrained write |
 | **Traces** | Inspect investigation and execution history | — | Audit/read |
 
-The browser layer is not a bypass around the backend. WebMCP tools call the same protected application boundaries used by CorrelAct, and the backend remains authoritative for tenant ownership, approval state, customer scope, idempotency, and execution eligibility.
+The browser layer is not a bypass around the backend. WebMCP tools call the same protected application boundaries used by CorrelAct, and the backend remains authoritative for organization ownership, approval state, customer scope, idempotency, and execution eligibility.
 
 ## Architecture
 
@@ -87,7 +102,7 @@ ChatGPT / WebMCP-capable browser agent
                     ↓
               PostgreSQL
          (runs, evidence state,
-        users, tenants, settings,
+       users, organizations/settings,
           executed actions)
                     ↓
              Human approval
@@ -143,13 +158,27 @@ LICENSE              MIT license
 CorrelAct is designed so browser-agent convenience does not weaken server-side controls.
 
 - **Authentication:** protected routes require an authenticated CorrelAct session.
-- **Tenant isolation:** tenant access is checked server-side before investigation or execution.
+- **Organization isolation:** organization access is checked server-side before investigation or execution.
 - **Customer matching:** an approved run cannot be replayed against a different customer.
 - **Human approval:** proposal and execution are separate phases.
 - **Constrained execution:** `create_task` cannot rewrite the approved action, priority, target team, or scope.
 - **Idempotency:** the same approved action cannot create duplicate external tasks through ordinary retries or repeated browser-agent calls.
 - **Auditability:** runs, traces, approval state, and execution results remain visible in CorrelAct.
 - **Public-release audit:** CI scans reachable git history for high-confidence credential material before build/test/eval gates proceed.
+
+## Identity migration and history preservation
+
+The original learning environment used `tenant_red`, `tenant_green`, `red_user`, `green_user`, and `admin_user`. Current CorrelAct startup performs an idempotent in-place migration to the public demo identity model:
+
+```text
+tenant_red   → NorthStar
+tenant_green → Neptune
+red_user     → user@northstar.com
+green_user   → user@neptune.com
+admin_user   → admin@correlact.com
+```
+
+The migration updates ownership and embedded identity references across existing customers, workflow runs, traces, action data, tenant settings, user grants, execution records, and stored eval history before canonical reference seeding occurs. It does **not** discard or replace historical runs. Re-running startup after migration is a no-op for already migrated data.
 
 ## GitHub task execution and idempotency
 
@@ -201,18 +230,20 @@ To intentionally enable the reference identities, provide your own strong passwo
 
 ```text
 ENABLE_DEMO_USERS=true
-DEMO_RED_PASSWORD=choose_a_strong_password_16_chars_or_more
-DEMO_GREEN_PASSWORD=choose_a_strong_password_16_chars_or_more
+DEMO_NORTHSTAR_PASSWORD=choose_a_strong_password_16_chars_or_more
+DEMO_NEPTUNE_PASSWORD=choose_a_strong_password_16_chars_or_more
 DEMO_ADMIN_PASSWORD=choose_a_strong_password_16_chars_or_more
 ```
 
 Reference grants:
 
-- `red_user` → `tenant_red`
-- `green_user` → `tenant_green`
-- `admin_user` → both reference tenants
+- `user@northstar.com` → NorthStar → ACME reference customer
+- `user@neptune.com` → Neptune → GreenMart reference customer
+- `admin@correlact.com` → NorthStar + Neptune
 
-When `ENABLE_DEMO_USERS=false`, startup does not create those accounts and removes legacy copies of the demo usernames from an existing database. When demo mode is enabled, passwords must be supplied through environment configuration and existing demo hashes are rotated to those configured values.
+When `ENABLE_DEMO_USERS=false`, startup does not create these accounts and removes current/legacy demo usernames from an existing database. When demo mode is enabled, passwords must be supplied through environment configuration and existing demo hashes are rotated to those configured values.
+
+For a controlled production migration, the application temporarily accepts `DEMO_RED_PASSWORD` and `DEMO_GREEN_PASSWORD` only as fallback environment names if the preferred NorthStar/Neptune variables are not yet wired. Preferred variables take precedence. This keeps an existing deployment available while Key Vault references are rotated; the legacy names should not be used for new deployments.
 
 Start CorrelAct:
 
@@ -244,12 +275,12 @@ http://127.0.0.1:8000/docs            Swagger UI
 
 ```json
 {
-  "username": "your_user",
-  "password": "your_password"
+  "username": "user@northstar.com",
+  "password": "your_environment_supplied_password"
 }
 ```
 
-The session identifies the tenants the account may access.
+The session identifies the organizations the account may access.
 
 ### 3. Investigate
 
@@ -257,12 +288,12 @@ The session identifies the tenants the account may access.
 
 ```json
 {
-  "tenant_id": "tenant_red",
+  "tenant_id": "NorthStar",
   "issue": "ACME says their invoice amount is wrong and their renewal is blocked."
 }
 ```
 
-`tenant_id` must belong to the authenticated user or the API rejects the request before the investigation runs.
+`tenant_id` is the internal compatibility field for the organization identifier. It must belong to the authenticated user or the API rejects the request before the investigation runs.
 
 ### 4. Human review
 
@@ -278,25 +309,25 @@ Reject:
 
 ### 5. Execute approved work
 
-The approved run can then be executed through the Tasks workspace / `create_task` WebMCP capability. The protected backend verifies approval state, tenant, customer, and idempotency before any external write occurs.
+The approved run can then be executed through the Tasks workspace / `create_task` WebMCP capability. The protected backend verifies approval state, organization, customer, and idempotency before any external write occurs.
 
 ### 6. Inspect state
 
 `GET /runs/{run_id}`
 
-`GET /runs` supports optional `status` and `tenant_id` filters and only returns runs within the authenticated tenant scope.
+`GET /runs` supports optional `status` and `tenant_id` filters and only returns runs within the authenticated organization scope.
 
 ## Customer data and MCP
 
 `agent_lab/mcp_server.py` defines the agent-facing `get_customer(customer_name, tenant_id)` capability. It opens a database session and delegates lookup to `agent_lab/customers.py`; it does not own customer records itself.
 
-The `customers` table stores tenant ownership, normalized identity, plan, account status, renewal value/status, billing status, and timestamps. A unique `(tenant_id, normalized_name)` constraint prevents duplicate customer identities inside one tenant while allowing the same customer name in separate tenants.
+The `customers` table stores organization ownership in the internal `tenant_id` column, normalized identity, plan, account status, renewal value/status, billing status, and timestamps. A unique `(tenant_id, normalized_name)` constraint prevents duplicate customer identities inside one organization while allowing the same customer name in separate organizations.
 
-ACME and GreenMart are reference records persisted in PostgreSQL rather than hardcoded MCP responses.
+ACME and GreenMart are reference records persisted in PostgreSQL rather than hardcoded MCP responses. ACME belongs to NorthStar; GreenMart belongs to Neptune.
 
 ## Evaluation and CI
 
-The live AI suite covers operational judgment, approval policy, customer evidence, tenant isolation, prompt/credential attacks, guardrail behavior, and invalid tenants. CI also runs deterministic unit/integration tests, builds the production container, and performs the public-release history audit.
+The live AI suite covers operational judgment, approval policy, customer evidence, organization isolation, prompt/credential attacks, guardrail behavior, and invalid organizations. CI also runs deterministic unit/integration tests, builds the production container, and performs the public-release history audit.
 
 Run the live evaluation suite manually with:
 
@@ -332,7 +363,7 @@ python scripts/mcp_test.py
 
 ## Data storage
 
-Workflow runs, customer records, eval history, user accounts, tenants, tenant settings, and successful write-tool executions are stored in PostgreSQL. `customers` is an investigation read source; `executed_actions` stores approved write results and GitHub reconciliation metadata.
+Workflow runs, customer records, eval history, user accounts, organizations (stored in the legacy-named `tenants` table), organization settings, and successful write-tool executions are stored in PostgreSQL. `customers` is an investigation read source; `executed_actions` stores approved write results and GitHub reconciliation metadata.
 
 ## License
 

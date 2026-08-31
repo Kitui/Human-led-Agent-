@@ -6,9 +6,9 @@ export const TASK_EXECUTED_EVENT = "correlact:task-executed";
 
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
-  if (!session) throw new Error("Sign in to Correlact before using Tasks tools.");
+  if (!session) throw new Error("Sign in to CorrelAct before using Tasks tools.");
   if (!session.tenantIds.includes(tenantId)) {
-    throw new Error(`You are not authorized for tenant ${tenantId}.`);
+    throw new Error(`You are not authorized for organization ${tenantId}.`);
   }
 }
 
@@ -42,17 +42,17 @@ export async function registerTaskWebMcpTool() {
   await document.modelContext.registerTool({
     name: "create_task",
     title: "Create approved operational task",
-    description: "Execute exactly one Correlact Action Point that has already been approved by a human. The backend rejects unapproved, rejected, cross-tenant, or mismatched-customer runs. The approved action, priority, and target team cannot be changed through this tool.",
+    description: "Execute exactly one CorrelAct Proposed Action that has already been approved by a human. The backend rejects unapproved, rejected, cross-organization, or mismatched-customer runs. The approved action, priority, target team, organization, and customer scope cannot be changed through this tool.",
     inputSchema: {
       type: "object",
       properties: {
         run_id: {
           type: "string",
-          description: "Correlact run ID whose Action Point has already been approved by a human.",
+          description: "CorrelAct run ID whose Proposed Action has already been approved by a human.",
         },
         tenant_id: {
           type: "string",
-          description: "Authorized tenant workspace, for example tenant_red.",
+          description: "Authorized organization identifier, for example NorthStar.",
         },
         customer_name: {
           type: "string",
