@@ -1,5 +1,12 @@
-/* Human-Led Agent Lab — login screen + session bootstrap */
-import { qs, api, getAuthSession, setAuthSession, clearAuthSession } from "./shared.js";
+/* Human-Led Agent Lab — login screen + shared browser session bootstrap */
+import {
+  API_BASE,
+  qs,
+  api,
+  getAuthSession,
+  setAuthSession,
+  clearAuthSession,
+} from "./shared.js";
 
 export function hasValidSession() {
   return !!getAuthSession();
@@ -15,7 +22,49 @@ export function currentTenantIds() {
   return s ? s.tenantIds : [];
 }
 
-export function logout() {
+export async function restoreBrowserSession() {
+  const existing = getAuthSession();
+  const headers = { "Content-Type": "application/json" };
+
+  // Existing tabs created before the cookie-session fix still have a bearer
+  // token in sessionStorage. Sending it once here upgrades that tab into the
+  // shared browser cookie session without asking the user to sign in again.
+  if (existing?.accessToken) {
+    headers.Authorization = `Bearer ${existing.accessToken}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/session`, {
+      method: "GET",
+      headers,
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      if (response.status === 401) clearAuthSession();
+      return false;
+    }
+
+    const body = await response.json();
+    setAuthSession({
+      accessToken: body.access_token,
+      tenantIds: body.tenant_ids,
+      username: body.username,
+    });
+    return true;
+  } catch (_) {
+    return !!existing;
+  }
+}
+
+export async function logout() {
+  try {
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: "POST",
+      credentials: "same-origin",
+    });
+  } catch (_) {
+    // Local state is still cleared even when the network is unavailable.
+  }
   clearAuthSession();
   location.reload();
 }
