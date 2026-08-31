@@ -1,5 +1,17 @@
 # Environment secrets
 .env
+.env.*
+!.env.example
+
+# Credentials / private keys
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+credentials*.json
+service-account*.json
 
 # Python virtual environment
 .venv/
