@@ -62,9 +62,8 @@ for (const viewport of [
     await expect(page.locator("#login-screen")).toHaveClass(/correlact-login-ready/);
     await expect(page.locator("#login-screen")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
-    await expect(page.getByText("Investigate.", { exact: true })).toBeVisible();
-    await expect(page.getByText("Correlate.", { exact: true })).toBeVisible();
-    await expect(page.getByText("Act.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Human-led", { exact: true })).toBeVisible();
+    await expect(page.getByText("operational intelligence", { exact: true })).toBeVisible();
     await expect(page.getByText(/Sign in with SSO/i)).toHaveCount(0);
     await expect(page.getByText(/Forgot password/i)).toHaveCount(0);
 

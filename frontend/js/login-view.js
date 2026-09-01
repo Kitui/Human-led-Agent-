@@ -93,44 +93,32 @@ export function renderLoginShell() {
 
         <div class="login-story-rule"></div>
         <h1>
-          <span>Investigate.</span>
-          <span>Correlate.</span>
-          <span class="act">Act.</span>
+          <span>Human-led</span>
+          <span>operational intelligence</span>
         </h1>
-        <p class="login-story-copy">CorrelAct helps operations teams investigate issues, correlate evidence, and act with confidence while consequential work remains human-controlled.</p>
-
-        <div class="login-signal-visual" aria-hidden="true">
-          <svg class="signal-graphic" viewBox="0 0 600 150" preserveAspectRatio="none">
-            <path class="signal-line" d="M40,95 C110,60 140,40 200,55 C260,70 300,115 360,100 C420,85 480,55 560,65" />
-            <path class="signal-link" d="M200,55 Q280,15 360,100" />
-            <circle class="signal-dot" cx="40" cy="95" r="4.5" />
-            <circle class="signal-dot signal-dot-active" cx="200" cy="55" r="5.5" />
-            <circle class="signal-dot signal-dot-active" cx="360" cy="100" r="5.5" />
-            <circle class="signal-dot" cx="560" cy="65" r="4.5" />
-          </svg>
-        </div>
+        <p class="login-story-copy">CorrelAct helps operations teams uncover issues, connect evidence, and move forward with confidence while keeping consequential work under human control.</p>
 
         <div class="login-principles">
           <article class="login-principle">
             <span class="login-principle-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/><path d="M7.5 10.5h6"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
             </span>
-            <strong>Investigate</strong>
-            <p>Find the operational cause with evidence.</p>
+            <strong>Issue Discovery</strong>
+            <p>Identify the operational cause with clear evidence.</p>
           </article>
           <article class="login-principle">
             <span class="login-principle-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="19" cy="12" r="2"/><path d="m7 11 3.2-2.4M13.8 8.5 17 11"/></svg>
             </span>
-            <strong>Correlate</strong>
-            <p>Connect signals and surface the truth.</p>
+            <strong>Connected Evidence</strong>
+            <p>Unify signals and surface what matters most.</p>
           </article>
           <article class="login-principle">
             <span class="login-principle-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-8 12h7l-1 8 8-12h-7z"/></svg>
             </span>
-            <strong>Act</strong>
-            <p>Execute only within approved authority.</p>
+            <strong>Governed Execution</strong>
+            <p>Move forward within approved authority and oversight.</p>
           </article>
         </div>
       </section>

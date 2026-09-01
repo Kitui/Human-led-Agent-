@@ -290,7 +290,6 @@ tbody tr:hover td { background: rgba(255,255,255,.018); }
   font-weight: 690;
 }
 .login-story h1 span { display: block; }
-.login-story h1 .act { color: #f13239; }
 .login-story-copy {
   max-width: 520px;
   margin: 26px 0 0;
@@ -298,60 +297,64 @@ tbody tr:hover td { background: rgba(255,255,255,.018); }
   font-size: 17px;
   line-height: 1.7;
 }
-.login-signal-visual {
-  position: relative;
-  height: 150px;
-  margin: 28px 0 22px;
-  overflow: hidden;
-  opacity: .95;
+/* Subtle dot-grid texture in the empty space behind the story column,
+ * fading out toward the headline/copy so it never competes with text.
+ * Lives on a separate ::before layer (not the element's own background)
+ * so the mask only ever affects the decorative dots, never the content. */
+.login-story { position: relative; }
+.login-story::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.5px);
+  background-size: 20px 20px;
+  background-position: right 0 top 0;
+  background-repeat: repeat;
+  -webkit-mask-image: linear-gradient(to left, #000 0%, #000 22%, transparent 62%);
+  mask-image: linear-gradient(to left, #000 0%, #000 22%, transparent 62%);
 }
-/* A single deliberate signal path with two "correlated" points joined by a
- * linking arc -- illustrates the actual product concept (finding and
- * connecting related signals) instead of decorative, disconnected marks. */
-.signal-graphic { display: block; width: 100%; height: 100%; }
-.signal-line {
-  fill: none;
-  stroke: rgba(148,178,214,.4);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-.signal-link {
-  fill: none;
-  stroke: rgba(239,43,50,.55);
-  stroke-width: 1.3;
-  stroke-linecap: round;
-  stroke-dasharray: 3 5;
-}
-.signal-dot { fill: #5b7ba8; }
-.signal-dot-active {
-  fill: #ef2b32;
-  filter: drop-shadow(0 0 6px rgba(239,43,50,.75));
-}
+.login-story > * { position: relative; z-index: 1; }
+
 .login-principles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 22px;
-  max-width: 690px;
+  gap: 18px;
+  max-width: 720px;
+  margin-top: 48px;
 }
 .login-principle {
   min-width: 0;
-  padding-top: 18px;
-  border-top: 1px solid #20334a;
+  padding: 22px 20px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,.02);
 }
 .login-principle-icon {
-  width: 46px;
-  height: 46px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
-  margin-bottom: 13px;
-  border: 1px solid #2a415c;
+  margin-bottom: 16px;
+  border: 2px solid transparent;
   border-radius: 50%;
-  background: #102239;
-  color: #ff3c43;
+  background:
+    linear-gradient(#0c1a2c, #0c1a2c) padding-box,
+    conic-gradient(from 200deg, #4193ff, #ef2b32 55%, #4193ff) border-box;
+  color: #fff;
 }
 .login-principle-icon svg { width: 22px; height: 22px; }
-.login-principle strong { display: block; color: #f4f7fb; font-size: 14px; }
-.login-principle p { margin: 5px 0 0; color: #95a4b8; font-size: 12.5px; line-height: 1.5; }
+.login-principle strong {
+  display: block;
+  width: fit-content;
+  color: #f4f7fb;
+  font-size: 15px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid #ef2b32;
+}
+.login-principle p { margin: 0; color: #95a4b8; font-size: 12.5px; line-height: 1.55; }
 
 .login-panel {
   width: min(100%, 560px);
@@ -436,7 +439,6 @@ tbody tr:hover td { background: rgba(255,255,255,.018); }
 @media (max-width: 980px) {
   .correlact-login-shell { grid-template-columns: 1fr; gap: 38px; padding: 34px clamp(22px,6vw,54px) 54px; }
   .login-brand { margin-bottom: 34px; }
-  .login-signal-visual { display: none; }
   .login-principles { max-width: none; }
   .login-panel { width: 100%; max-width: 620px; justify-self: start; }
 }
@@ -448,7 +450,7 @@ tbody tr:hover td { background: rgba(255,255,255,.018); }
   .login-story h1 { font-size: 43px; }
   .login-story-copy { font-size: 15px; margin-top: 18px; }
   .login-principles { grid-template-columns: 1fr; gap: 10px; }
-  .login-principle { display: grid; grid-template-columns: 44px 1fr; column-gap: 12px; padding: 12px 0; }
+  .login-principle { display: grid; grid-template-columns: 44px 1fr; column-gap: 12px; padding: 14px; }
   .login-principle-icon { grid-row: 1 / 3; margin: 0; width: 40px; height: 40px; }
   .login-panel { padding: 28px 20px; border-radius: 14px; }
   .login-panel h2 { font-size: 25px; }
