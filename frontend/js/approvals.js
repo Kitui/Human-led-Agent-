@@ -35,9 +35,8 @@ function findTraceEvent(run, labelPredicate) {
 /* Evidence for a human decision must stay separate from the later execution
  * result. WebMCP-submitted runs attach explicit EVIDENCE-tagged Support/CRM/
  * Billing findings. Older investigator runs still expose their read-tool
- * results as "... result received" trace events. Write-tool results such as
- * create_task are deliberately excluded here and remain in the Decision /
- * execution outcome section instead. */
+ * results as "... result received" trace events. Write-tool results are
+ * deliberately excluded here and remain in the Decision / execution section. */
 function deriveApprovalEvidence(run) {
   const bullets = [];
 
@@ -54,7 +53,7 @@ function deriveApprovalEvidence(run) {
     const sourceLabel = (event.label || "").replace(" result received", "");
     try {
       const parsed = JSON.parse(event.detail);
-      if (parsed.created) return; // execution outcome, not decision evidence
+      if (parsed.created || parsed.updated) return; // execution outcome, not decision evidence
       if (parsed.found && parsed.customer) {
         const c = parsed.customer;
         bullets.push(
@@ -174,9 +173,6 @@ function renderApprovalsStats(runs) {
   `;
 }
 
-// Statuses that represent a run which went through (or is in) human
-// review — i.e. its action point actually required approval. A WebMCP run
-// stays APPROVED between the human decision and the separate WebMCP write.
 const APPROVAL_RELEVANT_STATUSES = ["awaiting_approval", "approved", "completed", "rejected", "failed"];
 
 function approvalStatusBadge(run) {
@@ -187,6 +183,18 @@ function approvalStatusBadge(run) {
   if (s === "rejected") return `<span class="badge badge-status-rejected">REJECTED</span>`;
   if (s === "failed") return `<span class="badge badge-status-failed">FAILED</span>`;
   return statusBadge(run.status);
+}
+
+function approvedExecution(ap) {
+  return ap?.execution || { type: "create_task" };
+}
+
+function executionScopeLabel(ap) {
+  const execution = approvedExecution(ap);
+  if (execution.type === "update_crm_status") {
+    return `renewal_status: ${execution.crm_expected_status || "—"} → ${execution.crm_target_status || "—"}`;
+  }
+  return "One operational task using the approved recommendation, team and priority";
 }
 
 function filteredSortedApprovals() {
@@ -328,6 +336,7 @@ function renderApprovalDetailPanel() {
   grid.classList.add("has-detail");
 
   const ap = run.action_point;
+  const execution = approvedExecution(ap);
   const evidence = deriveApprovalEvidence(run);
   const status = (run.status || "").toLowerCase();
   const isPending = status === "awaiting_approval";
@@ -338,7 +347,7 @@ function renderApprovalDetailPanel() {
       <div class="ap-outline-actions">
         <button class="btn btn-outline-success" id="approval-approve-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Approve</span>
+          <span>Approve exact ${escapeHtml(execution.type)}</span>
         </button>
         <button class="btn btn-outline-danger" id="approval-reject-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
@@ -356,7 +365,7 @@ function renderApprovalDetailPanel() {
       <div class="detail-field-row"><span class="d-label">Outcome</span><span class="d-value">${approvalStatusBadge(run)}</span></div>
       <div class="detail-field-row"><span class="d-label">Decided At</span><span class="d-value">${decisionEvent ? fmtTime(decisionEvent.timestamp) : (run.updated_at ? fmtTime(run.updated_at) : "—")}</span></div>
       ${run.review_comment ? `<div class="detail-field-row"><span class="d-label">Comment</span><span class="d-value">${escapeHtml(run.review_comment)}</span></div>` : ""}
-      ${status === "approved" ? `<div class="detail-field-row"><span class="d-label">Execution</span><span class="d-value">Waiting for WebMCP create_task</span></div>` : ""}
+      ${status === "approved" ? `<div class="detail-field-row"><span class="d-label">Execution</span><span class="d-value">Waiting for WebMCP ${escapeHtml(execution.type)}</span></div>` : ""}
       ${status === "failed" && run.error ? `<div class="detail-field-row"><span class="d-label">Error</span><span class="d-value">${escapeHtml(run.error)}</span></div>` : ""}
       ${status === "completed" && run.execution_result ? `<div class="detail-field-row"><span class="d-label">Result</span><span class="d-value">${escapeHtml(run.execution_result)}</span></div>` : ""}
     `;
@@ -381,6 +390,8 @@ function renderApprovalDetailPanel() {
         <div class="ap-field full"><span class="label">Issue Type</span><span class="value">${escapeHtml(ap.issue_type)}</span></div>
         <div class="ap-field full"><span class="label">Summary</span><span class="value">${escapeHtml(ap.summary)}</span></div>
         <div class="ap-field full"><span class="label">Recommended Action</span><span class="value">${escapeHtml(ap.recommended_action)}</span></div>
+        <div class="ap-field"><span class="label">Execution Capability</span><span class="value"><strong>${escapeHtml(execution.type)}</strong></span></div>
+        <div class="ap-field full"><span class="label">Approved Execution Scope</span><span class="value">${escapeHtml(executionScopeLabel(ap))}</span></div>
         <div class="ap-field"><span class="label">Target Team</span><span class="value">${escapeHtml(ap.target_team || "—")}</span></div>
         <div class="ap-field"><span class="label">Confidence</span><span class="value"><span class="badge badge-confidence">${ap.confidence.toFixed(2)}</span></span></div>
         <div class="ap-field"><span class="label">Requires Human Approval</span><span class="value"><span class="badge ${ap.requires_human_approval ? "badge-yes" : "badge-no"}">${ap.requires_human_approval ? "Yes" : "No"}</span></span></div>
