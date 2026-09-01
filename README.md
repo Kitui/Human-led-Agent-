@@ -241,9 +241,7 @@ Reference grants:
 - `user@neptune.com` → Neptune → GreenMart reference customer
 - `admin@correlact.com` → NorthStar + Neptune
 
-When `ENABLE_DEMO_USERS=false`, startup does not create these accounts and removes current/legacy demo usernames from an existing database. When demo mode is enabled, passwords must be supplied through environment configuration and existing demo hashes are rotated to those configured values.
-
-For a controlled production migration, the application temporarily accepts `DEMO_RED_PASSWORD` and `DEMO_GREEN_PASSWORD` only as fallback environment names if the preferred NorthStar/Neptune variables are not yet wired. Preferred variables take precedence. This keeps an existing deployment available while Key Vault references are rotated; the legacy names should not be used for new deployments.
+When `ENABLE_DEMO_USERS=false`, startup does not create these accounts and removes current/legacy demo usernames from an existing database. When demo mode is enabled, passwords must be supplied through the canonical NorthStar/Neptune/Admin environment variables above and existing demo hashes are rotated to those configured values.
 
 Start CorrelAct:
 
