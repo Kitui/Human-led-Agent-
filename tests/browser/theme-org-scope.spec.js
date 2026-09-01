@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 const BASE_URL = process.env.CORRELACT_BASE_URL || "http://127.0.0.1:8000";
 const ADMIN_USERNAME = "admin@correlact.com";
 const ADMIN_PASSWORD = "admin-browser-test-pass";
-const LOGO_PATH = "/assets/correlact-logo.png?v=20260901c";
+const LOGO_PATH = "/assets/correlact-logo.png?v=20260901d";
 
 async function signIn(page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   await page.locator("#login-username").fill(username);

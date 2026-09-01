@@ -16,7 +16,7 @@ def test_correlact_logo_is_a_real_240_by_135_png_asset():
 
 def test_login_renders_image_instead_of_an_invented_brand_mark():
     login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
-    assert '<img src="/assets/correlact-logo.png?v=20260901c"' in login_source
+    assert '<img src="/assets/correlact-logo.png?v=20260901d"' in login_source
     assert 'width="240" height="135"' in login_source
     assert "login-brand-mark" not in login_source
     assert "Correl<span" not in login_source
@@ -28,12 +28,12 @@ def test_login_hides_first_paint_until_visual_layers_and_logo_are_ready():
     assert "stylesheetReady" in login_source
     assert "imageReady" in login_source
     assert "revealStableLogin" in login_source
-    assert 'link.href = "/correlact-fixes.css?v=20260901c"' in login_source
+    assert 'link.href = "/correlact-fixes.css?v=20260901d"' in login_source
 
 
 def test_polish_layer_prevents_recorded_flicker_overlap_and_icon_collision():
     css = (FRONTEND / "correlact-fixes.css").read_text(encoding="utf-8")
-    assert "url('/assets/correlact-logo.png?v=20260901c')" in css
+    assert "url('/assets/correlact-logo.png?v=20260901d')" in css
     assert ".login-brand img" in css
     assert "height: auto !important" in css
     assert "aspect-ratio: auto !important" in css

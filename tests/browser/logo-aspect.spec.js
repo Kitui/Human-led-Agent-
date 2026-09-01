@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const BASE_URL = process.env.CORRELACT_BASE_URL || "http://127.0.0.1:8000";
-const LOGO_PATH = "/assets/correlact-logo.png?v=20260901c";
+const LOGO_PATH = "/assets/correlact-logo.png?v=20260901d";
 
 async function expectLogoVisibleAndUnclipped(page) {
   const logo = page.locator(".login-brand img");
@@ -64,10 +64,10 @@ async function expectLogoVisibleAndUnclipped(page) {
   expect(metrics.transform).toBe("none");
   expect(metrics.objectFit).toBe("contain");
 
-  // The source artwork intentionally has transparent horizontal padding. The
-  // production defect was a vertical collapse into a thin strip, so preserve a
-  // strict vertical-coverage gate while allowing those intentional side margins.
-  expect(metrics.coverageWidth / metrics.naturalWidth).toBeGreaterThan(0.75);
+  // The verified artwork fills essentially its entire canvas edge to edge
+  // (no intentional transparent margins), so both axes get the same strict
+  // coverage gate -- this is what actually catches a collapsed/clipped render.
+  expect(metrics.coverageWidth / metrics.naturalWidth).toBeGreaterThan(0.9);
   expect(metrics.coverageHeight / metrics.naturalHeight).toBeGreaterThan(0.9);
   expect(metrics.opaquePixels).toBeGreaterThan(1500);
 }
@@ -101,7 +101,7 @@ async function expectStableLogin(page) {
   await expectLogoVisibleAndUnclipped(page);
   await expectInputIconSpacing(page, "#login-username");
   await expectInputIconSpacing(page, "#login-password");
-  await expect(page.locator('link[data-correlact-fixes]')).toHaveAttribute("href", /correlact-fixes\.css\?v=20260901c$/);
+  await expect(page.locator('link[data-correlact-fixes]')).toHaveAttribute("href", /correlact-fixes\.css\?v=20260901d$/);
 }
 
 test("CorrelAct logo stays fully visible and login icons never overlap text at reported viewport", async ({ page }) => {

@@ -17,7 +17,7 @@ function ensureLoginPolishStyles() {
   if (link) return link;
   link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "/correlact-fixes.css?v=20260901c";
+  link.href = "/correlact-fixes.css?v=20260901d";
   link.dataset.correlactFixes = "true";
   document.head.appendChild(link);
   return link;
@@ -88,7 +88,7 @@ export function renderLoginShell() {
     <div class="correlact-login-shell">
       <section class="login-story" aria-label="About CorrelAct">
         <div class="login-brand">
-          <img src="/assets/correlact-logo.png?v=20260901c" alt="CorrelAct — Investigate, Correlate, Act" width="240" height="135" />
+          <img src="/assets/correlact-logo.png?v=20260901d" alt="CorrelAct — Investigate, Correlate, Act" width="240" height="135" />
         </div>
 
         <div class="login-story-rule"></div>
