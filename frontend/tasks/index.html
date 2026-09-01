@@ -28,15 +28,54 @@
         <span class="pill">Human-gated WebMCP write</span>
         <h2>Execute only what a human already approved</h2>
         <p>
-          This workspace exposes one consequential WebMCP capability: <code>create_task</code>.
-          It accepts approved CorrelAct actions from both the main Investigate workspace and the
-          WebMCP Investigation Workspace. The browser agent cannot change the approved action, priority,
-          target team, organization, or customer scope.
+          CorrelAct exposes <code>create_task</code> to the browser agent only while this organization
+          has executable human-approved work. The backend independently re-checks the run, organization,
+          customer, approved action, and idempotency boundary before any external write succeeds.
         </p>
       </div>
       <div class="tool-status" id="webmcp-status">
         <span class="status-dot"></span>
-        <span>Checking WebMCP…</span>
+        <span>Checking execution authority…</span>
+      </div>
+    </section>
+
+    <section class="authority-panel" id="authority-panel" aria-live="polite">
+      <div class="authority-head">
+        <div>
+          <p class="eyebrow">Dynamic agent authority</p>
+          <h2>Human approval controls tool exposure</h2>
+          <p>The browser tool list changes with workflow state instead of giving the agent permanent write authority.</p>
+        </div>
+        <span class="authority-phase" id="authority-phase">Checking approved queue…</span>
+      </div>
+
+      <div class="authority-grid">
+        <article class="authority-stage state-upstream" id="authority-read">
+          <div class="authority-stage-head"><span class="authority-step">01</span><span class="authority-state">UPSTREAM</span></div>
+          <h3>Read evidence</h3>
+          <p>Evidence collection happens in the Investigation workspace.</p>
+          <div class="authority-tools"><code>get_case</code><code>get_customer</code><code>get_invoice</code></div>
+        </article>
+
+        <article class="authority-stage state-upstream" id="authority-propose">
+          <div class="authority-stage-head"><span class="authority-step">02</span><span class="authority-state">UPSTREAM</span></div>
+          <h3>Propose action</h3>
+          <p>The recommendation must already exist as a persisted CorrelAct run.</p>
+          <div class="authority-tools"><code>submit_action_point</code></div>
+        </article>
+
+        <article class="authority-stage state-checking" id="authority-execute">
+          <div class="authority-stage-head"><span class="authority-step">03</span><span class="authority-state" id="authority-execute-state">CHECKING</span></div>
+          <h3>Execute</h3>
+          <p id="authority-execute-copy">CorrelAct is checking for human-approved work.</p>
+          <div class="authority-tools"><code>create_task</code></div>
+        </article>
+      </div>
+
+      <div class="authority-context">
+        <div><span>Human approval</span><strong id="authority-approval">Checking approved runs</strong></div>
+        <div><span>Current scope</span><strong id="authority-scope">Organization scope not loaded yet</strong></div>
+        <div><span>Browser tool exposure</span><strong id="authority-exposure">create_task is not exposed until approval is verified</strong></div>
       </div>
     </section>
 
@@ -44,17 +83,17 @@
       <article class="summary-card">
         <span>Ready for execution</span>
         <strong id="ready-count">0</strong>
-        <small>Human-approved CorrelAct actions</small>
+        <small>Executable human-approved CorrelAct actions</small>
       </article>
       <article class="summary-card tool-summary">
-        <span>Exposed capability</span>
+        <span>Conditional capability</span>
         <code>create_task</code>
-        <small>Writes one approved GitHub task exactly once</small>
+        <small>Registered only while approved work exists</small>
       </article>
       <article class="summary-card">
         <span>Safety boundary</span>
         <strong>Approved only</strong>
-        <small>Awaiting, rejected, cross-organization, and customer-mismatch runs are blocked</small>
+        <small>Awaiting, rejected, completed, cross-organization, and customer-mismatch runs are blocked</small>
       </article>
     </section>
 
@@ -80,18 +119,20 @@
 
       <aside class="card agent-card">
         <p class="eyebrow">Judge quick test</p>
-        <h2>Ask the browser agent to execute</h2>
+        <h2>Watch authority unlock after approval</h2>
         <p class="muted">
           Stay signed in to CorrelAct after approving the proposed action. Then open this page in ChatGPT's
-          in-app browser or another WebMCP-capable browser agent and ask it to execute the already-approved
-          run. The Model Context Tool Inspector remains optional for manual developer verification.
+          in-app browser or another WebMCP-capable browser agent. When an executable approved run exists,
+          CorrelAct registers <code>create_task</code> for the browser agent; when that authority is consumed,
+          the tool is removed again from this page's WebMCP context. The Model Context Tool Inspector remains optional
+          for manual developer verification.
         </p>
         <blockquote>
           Execute the already-approved ACME task for run RUN_ID in the NorthStar organization. Use create_task.
           Do not alter the approved action or create any additional work.
         </blockquote>
         <div class="scope-row"><span>Human approval</span><strong>Required first</strong></div>
-        <div class="scope-row"><span>External write</span><strong>1 task maximum</strong></div>
+        <div class="scope-row"><span>External write</span><strong>1 task per approved run</strong></div>
         <div class="scope-row"><span>Idempotency</span><strong>Durable</strong></div>
       </aside>
     </section>

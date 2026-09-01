@@ -3,23 +3,84 @@ import { restoreBrowserSession } from "./auth.js";
 import {
   executeApprovedTask,
   registerTaskWebMcpTool,
+  unregisterTaskWebMcpTool,
   TASK_EXECUTED_EVENT,
 } from "./webmcp/task-tools.js";
 
 const $ = (selector) => document.querySelector(selector);
 
-function setWebMcpStatus({ supported, registered }) {
+function setWebMcpStatus({ supported, registered, locked = false }) {
   const el = $("#webmcp-status");
-  el.classList.remove("ready", "unsupported");
+  el.classList.remove("ready", "unsupported", "locked");
   if (supported && registered) {
     el.classList.add("ready");
-    el.querySelector("span:last-child").textContent = "create_task registered";
+    el.querySelector("span:last-child").textContent = "create_task exposed · approved authority";
+    return;
+  }
+  if (supported && locked) {
+    el.classList.add("locked");
+    el.querySelector("span:last-child").textContent = "Execution locked · approval required";
     return;
   }
   el.classList.add("unsupported");
   el.querySelector("span:last-child").textContent = supported
     ? "WebMCP tool registration failed"
     : "WebMCP unavailable in this browser";
+}
+
+function setExecuteStage(label, stateClass, copy) {
+  const stage = $("#authority-execute");
+  stage.classList.remove("state-checking", "state-enabled", "state-locked", "state-unavailable");
+  stage.classList.add(stateClass);
+  $("#authority-execute-state").textContent = label;
+  $("#authority-execute-copy").textContent = copy;
+}
+
+function renderTaskAuthority(runs, toolState) {
+  const tenantId = $("#tenant-select").value || "organization";
+
+  if (runs.length && toolState.registered) {
+    const first = runs[0];
+    const customer = approvedCustomer(first) || "approved customer";
+    $("#authority-phase").textContent = "Execution authority granted";
+    setExecuteStage("ENABLED", "state-enabled", "Human approval verified. create_task is exposed for the approved execution queue.");
+    $("#authority-approval").textContent = `${runs.length} executable approved run${runs.length === 1 ? "" : "s"} verified`;
+    $("#authority-scope").textContent = `${tenantId} · ${customer} · ${shortRunId(first.run_id)}`;
+    $("#authority-exposure").textContent = "create_task is registered in this page's WebMCP context";
+    return;
+  }
+
+  if (runs.length && !toolState.supported) {
+    $("#authority-phase").textContent = "Approved · browser unavailable";
+    setExecuteStage("UNAVAILABLE", "state-unavailable", "Human-approved work exists, but this browser does not expose the WebMCP registration API.");
+    $("#authority-approval").textContent = `${runs.length} executable approved run${runs.length === 1 ? "" : "s"} verified`;
+    $("#authority-scope").textContent = `${tenantId} · approved queue ready`;
+    $("#authority-exposure").textContent = "create_task cannot be exposed in this browser";
+    return;
+  }
+
+  if (runs.length && toolState.supported && !toolState.registered) {
+    $("#authority-phase").textContent = "Tool registration failed";
+    setExecuteStage("UNAVAILABLE", "state-unavailable", "Approval exists, but create_task could not be registered in the browser context.");
+    $("#authority-approval").textContent = `${runs.length} executable approved run${runs.length === 1 ? "" : "s"} verified`;
+    $("#authority-scope").textContent = `${tenantId} · approved queue ready`;
+    $("#authority-exposure").textContent = "create_task registration failed";
+    return;
+  }
+
+  $("#authority-phase").textContent = "Execution authority locked";
+  setExecuteStage("LOCKED", "state-locked", "No executable human-approved run exists for this organization.");
+  $("#authority-approval").textContent = "Waiting for an approved run";
+  $("#authority-scope").textContent = `${tenantId} · no executable approved work`;
+  $("#authority-exposure").textContent = "create_task is removed from this page's WebMCP context";
+}
+
+function renderTaskAuthoritySignedOut() {
+  $("#authority-phase").textContent = "Sign in required";
+  setExecuteStage("LOCKED", "state-locked", "No execution authority exists without an authenticated CorrelAct session.");
+  $("#authority-approval").textContent = "Authentication required";
+  $("#authority-scope").textContent = "No organization scope";
+  $("#authority-exposure").textContent = "create_task is not exposed";
 }
 
 function approvedCustomer(run) {
@@ -50,7 +111,7 @@ function approvedCustomer(run) {
 function runOrigin(run) {
   return (run.trace || []).some((event) => event.label === "WebMCP Action Point submitted")
     ? "WebMCP Investigation"
-    : "Correlact Investigate";
+    : "CorrelAct Investigate";
 }
 
 function showExecutionSuccess(result) {
@@ -118,12 +179,47 @@ function renderRuns(runs) {
   });
 }
 
+async function syncTaskAuthority(executableRuns) {
+  const supported = !!document.modelContext?.registerTool;
+
+  if (!executableRuns.length) {
+    unregisterTaskWebMcpTool();
+    const state = { supported, registered: false, locked: supported };
+    setWebMcpStatus(state);
+    renderTaskAuthority([], state);
+    return state;
+  }
+
+  if (!supported) {
+    const state = { supported: false, registered: false, locked: false };
+    setWebMcpStatus(state);
+    renderTaskAuthority(executableRuns, state);
+    return state;
+  }
+
+  try {
+    const result = await registerTaskWebMcpTool();
+    const state = { ...result, locked: false };
+    setWebMcpStatus(state);
+    renderTaskAuthority(executableRuns, state);
+    return state;
+  } catch (error) {
+    console.error("Tasks WebMCP registration failed", error);
+    const state = { supported: true, registered: false, locked: false };
+    setWebMcpStatus(state);
+    renderTaskAuthority(executableRuns, state);
+    return state;
+  }
+}
+
 async function loadApprovedRuns() {
   const tenantId = $("#tenant-select").value;
   if (!tenantId) return;
   const runs = await api(`/runs?status=approved&tenant_id=${encodeURIComponent(tenantId)}`);
   renderRuns(runs);
-  $("#ready-count").textContent = String(runs.length);
+  const executableRuns = runs.filter((run) => !!approvedCustomer(run));
+  $("#ready-count").textContent = String(executableRuns.length);
+  await syncTaskAuthority(executableRuns);
 }
 
 async function init() {
@@ -132,7 +228,8 @@ async function init() {
 
   if (!session) {
     $("#login-required").classList.remove("hidden");
-    setWebMcpStatus({ supported: false, registered: false });
+    setWebMcpStatus({ supported: false, registered: false, locked: false });
+    renderTaskAuthoritySignedOut();
     return;
   }
 
@@ -145,14 +242,12 @@ async function init() {
     await loadApprovedRuns();
   });
 
-  try {
-    setWebMcpStatus(await registerTaskWebMcpTool());
-  } catch (error) {
-    console.error("Tasks WebMCP registration failed", error);
-    setWebMcpStatus({ supported: true, registered: false });
-  }
-
   $("#tenant-select").addEventListener("change", loadApprovedRuns);
+  window.addEventListener("focus", () => { loadApprovedRuns().catch(console.error); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) loadApprovedRuns().catch(console.error);
+  });
+
   await loadApprovedRuns();
 }
 

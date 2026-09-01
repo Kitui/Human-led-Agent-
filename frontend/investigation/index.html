@@ -39,6 +39,57 @@
       </div>
     </section>
 
+    <section class="authority-panel" id="authority-panel" aria-live="polite">
+      <div class="authority-head">
+        <div>
+          <p class="eyebrow">Dynamic agent authority</p>
+          <h2>What the browser agent can do now</h2>
+          <p>CorrelAct exposes capabilities progressively. Consequential execution is not available during investigation.</p>
+        </div>
+        <span class="authority-phase" id="authority-phase">Checking authority…</span>
+      </div>
+
+      <div class="authority-grid">
+        <article class="authority-stage state-checking" id="authority-read">
+          <div class="authority-stage-head">
+            <span class="authority-step">01</span>
+            <span class="authority-state" id="authority-read-state">CHECKING</span>
+          </div>
+          <h3>Read evidence</h3>
+          <p>Inspect operational source records without changing external state.</p>
+          <div class="authority-tools">
+            <code>get_case</code><code>get_customer</code><code>get_invoice</code>
+          </div>
+        </article>
+
+        <article class="authority-stage state-checking" id="authority-propose">
+          <div class="authority-stage-head">
+            <span class="authority-step">02</span>
+            <span class="authority-state" id="authority-propose-state">CHECKING</span>
+          </div>
+          <h3>Propose action</h3>
+          <p>Persist one evidence-backed recommendation for human review.</p>
+          <div class="authority-tools"><code>submit_action_point</code></div>
+        </article>
+
+        <article class="authority-stage state-locked" id="authority-execute">
+          <div class="authority-stage-head">
+            <span class="authority-step">03</span>
+            <span class="authority-state" id="authority-execute-state">LOCKED</span>
+          </div>
+          <h3>Execute</h3>
+          <p>External execution requires an approved run and is deliberately absent here.</p>
+          <div class="authority-tools"><code>create_task</code></div>
+        </article>
+      </div>
+
+      <div class="authority-context">
+        <div><span>Trust boundary</span><strong id="authority-boundary">Human approval is required before execution authority exists.</strong></div>
+        <div><span>Current run</span><strong id="authority-run">No proposal submitted yet</strong></div>
+        <div><span>Next authority change</span><strong id="authority-next">Approval unlocks scoped execution in Tasks</strong></div>
+      </div>
+    </section>
+
     <section class="tool-grid" aria-label="Available WebMCP tools">
       <article class="tool-card">
         <span class="source-label">Support</span>
@@ -94,8 +145,8 @@
         <p class="muted">
           First sign in to CorrelAct using the challenge demo credentials supplied with the submission.
           Then open this page in ChatGPT's in-app browser or another WebMCP-capable browser agent and
-          use the suggested prompt below. The Model Context Tool Inspector is optional and is only
-          needed for manual developer verification.
+          use the suggested prompt below. The authority panel above will update when the proposal is persisted.
+          The Model Context Tool Inspector is optional and is only needed for manual developer verification.
         </p>
         <blockquote>
           Investigate the ACME renewal issue for the NorthStar organization. Use Support, CRM, and

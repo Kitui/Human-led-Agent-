@@ -2,6 +2,8 @@ import { api, getAuthSession } from "../shared.js";
 
 let registered = false;
 
+export const ACTION_POINT_SUBMITTED_EVENT = "correlact:action-point-submitted";
+
 function assertAuthorizedTenant(tenantId) {
   const session = getAuthSession();
   if (!session) throw new Error("Sign in to CorrelAct before submitting a Proposed Action.");
@@ -10,15 +12,24 @@ function assertAuthorizedTenant(tenantId) {
   }
 }
 
+function notifyActionPointSubmitted(run, payload) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ACTION_POINT_SUBMITTED_EVENT, {
+    detail: { run, payload },
+  }));
+}
+
 export async function submitActionPoint(payload) {
   const tenantId = String(payload?.tenant_id || "").trim();
   if (!tenantId) throw new Error("tenant_id is required.");
   assertAuthorizedTenant(tenantId);
 
-  return api("/webmcp/action-points", {
+  const run = await api("/webmcp/action-points", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  notifyActionPointSubmitted(run, payload);
+  return run;
 }
 
 export async function registerActionPointWebMcpTool() {
