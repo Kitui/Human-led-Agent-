@@ -104,7 +104,7 @@ test("same human gate governs a distinct CRM write and exposes the exact approve
 
   // A repeated invocation is accepted as the same completed run and cannot
   // perform a second business-state transition.
-  const repeated = await api(page, "/webmcp/tasks", {
+  const repeated = await api(page, "/webmcp/crm-status", {
     method: "POST",
     body: JSON.stringify({
       run_id: submitted.body.run_id,

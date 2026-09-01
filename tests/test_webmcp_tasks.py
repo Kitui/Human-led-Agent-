@@ -63,7 +63,9 @@ def test_tasks_workspace_registers_controlled_write_tools_and_calls_same_backend
     assert 'name: "create_task"' in source
     assert 'name: "update_crm_status"' in source
     assert "readOnlyHint: false" in source
-    assert 'api("/webmcp/tasks"' in source
+    assert '"/webmcp/tasks"' in source
+    assert '"/webmcp/crm-status"' in source
+    assert "EXECUTION_ENDPOINT_BY_TYPE" in source
     assert "human-approved" in source
     assert 'required: ["run_id", "tenant_id", "customer_name"]' in source
     assert "actualType !== expectedType" in source

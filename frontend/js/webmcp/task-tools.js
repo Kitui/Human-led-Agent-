@@ -17,6 +17,15 @@ function approvedExecutionType(run) {
   return run?.action_point?.execution?.type || "create_task";
 }
 
+// Each controlled-execution tool has its own backend route (see
+// agent_lab/api.py's /webmcp/tasks and /webmcp/crm-status), so a tool can
+// never dispatch a different execution type even if this client-side check
+// were bypassed entirely.
+const EXECUTION_ENDPOINT_BY_TYPE = {
+  create_task: "/webmcp/tasks",
+  update_crm_status: "/webmcp/crm-status",
+};
+
 async function executeApprovedAction(runId, tenantId, customerName, expectedType) {
   const run = String(runId || "").trim();
   const tenant = String(tenantId || "").trim();
@@ -38,7 +47,7 @@ async function executeApprovedAction(runId, tenantId, customerName, expectedType
     throw new Error("Approved run does not belong to the selected organization.");
   }
 
-  return api("/webmcp/tasks", {
+  return api(EXECUTION_ENDPOINT_BY_TYPE[expectedType], {
     method: "POST",
     body: JSON.stringify({ run_id: run, tenant_id: tenant, customer_name: customer }),
   });

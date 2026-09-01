@@ -50,6 +50,7 @@ from .tenants import (
 )
 from .webmcp_tasks import (
     approve_webmcp_action_point,
+    execute_webmcp_approved_crm_status,
     execute_webmcp_approved_task,
     is_webmcp_action_point,
 )
@@ -409,11 +410,12 @@ async def execute_webmcp_task(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowRun:
-    """Compatibility controlled-execution endpoint.
+    """Execute exactly one already-approved create_task Action Point.
 
-    The approved Action Point, not the browser payload, selects which backend
-    adapter executes. Existing create_task clients keep the same endpoint while
-    update_crm_status reuses the identical authorization and idempotency gate.
+    A distinct route from /webmcp/crm-status so each controlled-execution
+    tool is independently enforced by the backend: this endpoint rejects a
+    run approved for a different execution type instead of silently
+    dispatching to whatever the run happens to carry.
     """
     tenant_id = request.tenant_id.strip()
     if tenant_id not in current_user.tenant_ids:
@@ -429,6 +431,44 @@ async def execute_webmcp_task(
 
     try:
         return await execute_webmcp_approved_task(
+            db,
+            request.run_id,
+            request.customer_name,
+        )
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+    except InvalidRunStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/webmcp/crm-status", response_model=WorkflowRun)
+async def execute_webmcp_crm_status(
+    request: WebMcpApprovedTaskRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowRun:
+    """Execute exactly one already-approved update_crm_status Action Point.
+
+    A distinct route from /webmcp/tasks for the same reason: the backend, not
+    only the browser's own pre-check, must reject this call against a run
+    that was approved for a different execution type.
+    """
+    tenant_id = request.tenant_id.strip()
+    if tenant_id not in current_user.tenant_ids:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
+    try:
+        run = await get_run(db, request.run_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+
+    if run.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Run does not belong to this tenant.")
+
+    try:
+        return await execute_webmcp_approved_crm_status(
             db,
             request.run_id,
             request.customer_name,

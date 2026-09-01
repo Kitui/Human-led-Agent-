@@ -67,7 +67,7 @@ async def test_crm_write_is_blocked_until_human_approval(client, auth_headers):
     assert before["renewal_status"] == "blocked"
 
     response = await client.post(
-        "/webmcp/tasks",
+        "/webmcp/crm-status",
         json={
             "run_id": submitted["run_id"],
             "tenant_id": "NorthStar",
@@ -124,7 +124,7 @@ async def test_approved_crm_write_mutates_once_and_is_idempotent(
         "tenant_id": "NorthStar",
         "customer_name": "ACME",
     }
-    executed = await client.post("/webmcp/tasks", json=payload, headers=headers)
+    executed = await client.post("/webmcp/crm-status", json=payload, headers=headers)
     assert executed.status_code == 200
     body = executed.json()
     assert body["status"] == "completed"
@@ -146,7 +146,7 @@ async def test_approved_crm_write_mutates_once_and_is_idempotent(
     )
     assert count == 1
 
-    repeated = await client.post("/webmcp/tasks", json=payload, headers=headers)
+    repeated = await client.post("/webmcp/crm-status", json=payload, headers=headers)
     assert repeated.status_code == 200
     assert repeated.json()["idempotency_key"] == body["idempotency_key"]
     customer_again = await _crm_customer(client, headers)
@@ -174,7 +174,7 @@ async def test_crm_write_rejects_cross_organization_and_mismatched_customer(
 
     neptune = await auth_headers("user@neptune.com", "neptune-test-pass")
     cross_org = await client.post(
-        "/webmcp/tasks",
+        "/webmcp/crm-status",
         json={
             "run_id": submitted["run_id"],
             "tenant_id": "NorthStar",
@@ -185,7 +185,7 @@ async def test_crm_write_rejects_cross_organization_and_mismatched_customer(
     assert cross_org.status_code == 403
 
     wrong_customer = await client.post(
-        "/webmcp/tasks",
+        "/webmcp/crm-status",
         json={
             "run_id": submitted["run_id"],
             "tenant_id": "NorthStar",
@@ -195,6 +195,40 @@ async def test_crm_write_rejects_cross_organization_and_mismatched_customer(
     )
     assert wrong_customer.status_code == 422
     assert "does not match the CRM evidence" in wrong_customer.json()["detail"]
+
+
+async def test_execution_endpoints_reject_the_other_tools_execution_type(
+    client,
+    auth_headers,
+):
+    """Each controlled-execution tool has its own backend route, so calling
+    the wrong one is rejected by the backend itself -- not only by the
+    browser's own pre-check of the approved run's execution type."""
+    headers = await _northstar_headers(auth_headers)
+
+    crm_submitted = await _submit_crm_action(client, headers)
+    await client.post(f"/runs/{crm_submitted['run_id']}/approve", json={}, headers=headers)
+    wrong_endpoint_for_crm = await client.post(
+        "/webmcp/tasks",
+        json={"run_id": crm_submitted["run_id"], "tenant_id": "NorthStar", "customer_name": "ACME"},
+        headers=headers,
+    )
+    assert wrong_endpoint_for_crm.status_code == 409
+    assert "authorizes update_crm_status, not create_task" in wrong_endpoint_for_crm.json()["detail"]
+
+    task_payload = crm_action_payload()
+    del task_payload["execution"]
+    task_submitted = (
+        await client.post("/webmcp/action-points", json=task_payload, headers=headers)
+    ).json()
+    await client.post(f"/runs/{task_submitted['run_id']}/approve", json={}, headers=headers)
+    wrong_endpoint_for_task = await client.post(
+        "/webmcp/crm-status",
+        json={"run_id": task_submitted["run_id"], "tenant_id": "NorthStar", "customer_name": "ACME"},
+        headers=headers,
+    )
+    assert wrong_endpoint_for_task.status_code == 409
+    assert "authorizes create_task, not update_crm_status" in wrong_endpoint_for_task.json()["detail"]
 
 
 async def test_crm_transition_must_be_frozen_and_allowlisted_before_review(

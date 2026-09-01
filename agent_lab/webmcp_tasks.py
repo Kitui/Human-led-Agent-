@@ -311,12 +311,19 @@ async def execute_webmcp_approved_task(
     run_id: str,
     customer_name: str,
 ) -> WorkflowRun:
-    """Compatibility entrypoint used by /webmcp/tasks.
+    """Entrypoint used by /webmcp/tasks. Only executes create_task-approved runs.
 
-    The approved run selects the adapter; no action type is accepted from the
-    execution request, so the caller cannot switch capabilities after approval.
+    /webmcp/crm-status is the separate, independently-enforced route for
+    update_crm_status so each controlled-execution tool is backed by its own
+    backend check, not only by the browser's own pre-check of the approved
+    run's execution type.
     """
-    return await execute_webmcp_approved_action(db, run_id, customer_name)
+    return await execute_webmcp_approved_action(
+        db,
+        run_id,
+        customer_name,
+        expected_execution_type="create_task",
+    )
 
 
 async def execute_webmcp_approved_crm_status(
