@@ -93,8 +93,8 @@ jobs:
           PY
 
       # PRs render the real production container in Chromium before merge.
-      # This catches CSS/card/sidebar regressions that source-level assertions
-      # cannot detect. The Azure workflow still deploys only successful main CI.
+      # This catches layout regressions and verifies the anonymous/public route
+      # separately from the authenticated application boundary.
       - name: Start production container for browser checks
         shell: bash
         run: |
@@ -131,16 +131,16 @@ jobs:
           npm install --no-save --no-package-lock @playwright/test@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Run rendered browser layout checks
+      - name: Run rendered browser checks
         env:
           CORRELACT_BASE_URL: http://127.0.0.1:8000
-        run: npx playwright test tests/browser/settings-layout.spec.js --reporter=line
+        run: npx playwright test tests/browser --reporter=line
 
       - name: Upload browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-layout-failure
+          name: browser-check-failure
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
