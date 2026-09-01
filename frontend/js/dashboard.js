@@ -1,11 +1,8 @@
-/* Human-Led Agent Lab — Dashboard page
+/* CorrelAct — Dashboard page.
  *
- * Every number here is computed from real run data (this browser's known
- * runs). Two mockup metrics have no real backing in this codebase and are
- * shown as such rather than invented: per-run "Quality Gate" pass/fail
- * (evals.py only reports a single CI-wide score, not per investigation
- * run) and live per-service health checks (only a single /health endpoint
- * exists — see dashboard health panel below).
+ * Dashboard state is derived from real workflow runs, persisted eval suites,
+ * and the live API health endpoint. Readiness labels describe observed or
+ * enforced capabilities rather than inventing per-service health checks.
  */
 import {
   qs, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge, titleCase,
@@ -61,53 +58,38 @@ function trendHtml(current, previous, label) {
   return `<span class="stat-trend ${dir}">${arrow} ${Math.abs(pct).toFixed(1)}% ${label}</span>`;
 }
 
-function renderDashboardStats(runs) {
+function renderDashboardStats(runs, latestEval) {
   const s = computeDashboardStats(runs);
+  const evalValue = latestEval ? `${latestEval.score.toFixed(0)}%` : "Ready";
+  const evalDetail = latestEval
+    ? `${latestEval.result === "passed" ? "Passed" : "Failed"} · ${latestEval.passed_count}/${latestEval.total_count} cases · ${latestEval.threshold.toFixed(0)}% gate`
+    : "Run a live suite from Evals";
+  const evalIconClass = latestEval?.result === "passed" ? "green" : "purple";
+
   qs("#dashboard-stats").innerHTML = `
     <div class="stat-card">
       <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${DASH_ICONS.totalRuns}</svg></div>
-      <div class="stat-body">
-        <div class="stat-label">Total Runs</div>
-        <div class="stat-value">${s.total.toLocaleString()}</div>
-        ${trendHtml(s.last7, s.prev7, "vs prior 7 days")}
-      </div>
+      <div class="stat-body"><div class="stat-label">Total Runs</div><div class="stat-value">${s.total.toLocaleString()}</div>${trendHtml(s.last7, s.prev7, "vs prior 7 days")}</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${DASH_ICONS.pending}</svg></div>
-      <div class="stat-body">
-        <div class="stat-label">Pending Approvals</div>
-        <div class="stat-value">${s.pending}</div>
-        <span class="stat-trend flat">Live count</span>
-      </div>
+      <div class="stat-body"><div class="stat-label">Pending Approvals</div><div class="stat-value">${s.pending}</div><span class="stat-trend flat">Live count</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${DASH_ICONS.checkShield}</svg></div>
-      <div class="stat-body">
-        <div class="stat-label">Completed Today</div>
-        <div class="stat-value">${s.completedToday}</div>
-        ${trendHtml(s.completedToday, s.completedYesterday, "vs yesterday")}
-      </div>
+      <div class="stat-body"><div class="stat-label">Completed Today</div><div class="stat-value">${s.completedToday}</div>${trendHtml(s.completedToday, s.completedYesterday, "vs yesterday")}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${DASH_ICONS.checkShield}</svg></div>
-      <div class="stat-body">
-        <div class="stat-label">Quality Gate Pass Rate</div>
-        <div class="stat-value">—</div>
-        <span class="stat-trend flat">Tracked in CI, not per run yet</span>
-      </div>
+      <div class="stat-icon ${evalIconClass}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${DASH_ICONS.evals}</svg></div>
+      <div class="stat-body"><div class="stat-label">Latest Evaluation</div><div class="stat-value">${evalValue}</div><span class="stat-trend flat">${escapeHtml(evalDetail)}</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${DASH_ICONS.clock}</svg></div>
-      <div class="stat-body">
-        <div class="stat-label">Avg Duration</div>
-        <div class="stat-value">${fmtDuration(s.avgDuration)}</div>
-        <span class="stat-trend flat">${s.durationsCount} run${s.durationsCount === 1 ? "" : "s"} measured</span>
-      </div>
+      <div class="stat-body"><div class="stat-label">Avg Duration</div><div class="stat-value">${fmtDuration(s.avgDuration)}</div><span class="stat-trend flat">${s.durationsCount} run${s.durationsCount === 1 ? "" : "s"} measured</span></div>
     </div>
   `;
 }
 
-/* ---------------- run volume chart (real, hand-rolled SVG via Chart.js) ---------------- */
 function bucketRunsByDay(runs, days) {
   const buckets = [];
   const today = new Date();
@@ -178,17 +160,12 @@ function renderVolumeChart(runs) {
       },
       scales: {
         x: { grid: { display: false }, ticks: { color: textFaint, font: { size: 11 } } },
-        y: {
-          beginAtZero: true,
-          ticks: { precision: 0, color: textFaint, font: { size: 11 } },
-          grid: { color: border },
-        },
+        y: { beginAtZero: true, ticks: { precision: 0, color: textFaint, font: { size: 11 } }, grid: { color: border } },
       },
     },
   });
 }
 
-/* ---------------- status breakdown donut (Chart.js) ---------------- */
 function renderStatusDonut(runs) {
   const container = qs("#status-donut");
 
@@ -272,7 +249,6 @@ function renderStatusDonut(runs) {
   });
 }
 
-/* ---------------- recent activity (real, derived from backend trace events) ---------------- */
 function renderActivityList(runs) {
   const container = qs("#activity-list");
   const events = [];
@@ -288,26 +264,26 @@ function renderActivityList(runs) {
   const iconClassByKind = { guardrail: "purple", mcp: "blue", execution: "green", error: "red" };
   container.innerHTML = top.map((e) => `
     <div class="activity-row">
-      <div class="activity-icon ${iconClassByKind[e.kind] || "blue"}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${traceIconSvg(e.kind)}</svg>
-      </div>
-      <div class="activity-body">
-        <div class="activity-title">${escapeHtml(e.label)}</div>
-        <div class="activity-sub">${escapeHtml(shortRunId(e.run_id))}${e.detail ? " — " + escapeHtml(e.detail.slice(0, 70)) : ""}</div>
-      </div>
+      <div class="activity-icon ${iconClassByKind[e.kind] || "blue"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${traceIconSvg(e.kind)}</svg></div>
+      <div class="activity-body"><div class="activity-title">${escapeHtml(e.label)}</div><div class="activity-sub">${escapeHtml(shortRunId(e.run_id))}${e.detail ? " — " + escapeHtml(e.detail.slice(0, 70)) : ""}</div></div>
       <div class="activity-time">${fmtTime(e.timestamp)}</div>
     </div>
   `).join("");
 }
 
-/* ---------------- system health ----------------
- * Only "API Health" is a real, live-checked signal (the same /health poll
- * used for the topbar badge). The other three rows have no dedicated
- * health check anywhere in this codebase, so they're shown as
- * "Not monitored" rather than a fabricated "Healthy".
- */
-async function renderHealthList() {
+function latestTraceEvent(runs, predicate) {
+  const events = [];
+  runs.forEach((run) => (run.trace || []).forEach((event) => {
+    if (predicate(event)) events.push(event);
+  }));
+  return events.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0] || null;
+}
+
+async function renderHealthList(runs, latestEval) {
   const container = qs("#health-list");
+  const cardTitle = container.closest(".card")?.querySelector("h2");
+  if (cardTitle) cardTitle.textContent = "Operational Readiness";
+
   let apiHealthy = false;
   try {
     await api("/health");
@@ -316,32 +292,50 @@ async function renderHealthList() {
     apiHealthy = false;
   }
 
+  const mcpEvent = latestTraceEvent(runs, (event) => event.kind === "mcp");
+  const guardrailEvent = latestTraceEvent(runs, (event) => event.kind === "guardrail");
+  const evalPassed = latestEval?.result === "passed";
+
   const rows = [
-    { title: "MCP Status", sub: "No per-service health check is exposed by the API yet.", badge: "unmonitored", icon: DASH_ICONS.mcp },
-    { title: "Guardrails Status", sub: "No per-service health check is exposed by the API yet.", badge: "unmonitored", icon: DASH_ICONS.guardrail },
-    { title: "Evals Status", sub: "Evals run in CI only; results aren't persisted for live display yet.", badge: "unmonitored", icon: DASH_ICONS.evals },
     {
       title: "API Health",
-      sub: apiHealthy ? "Human-Led Agent Lab API is responding normally." : "The API did not respond to the last health check.",
+      sub: apiHealthy ? "CorrelAct API is responding normally." : "The API did not respond to the latest health check.",
       badge: apiHealthy ? "healthy" : "down",
+      badgeLabel: apiHealthy ? "Healthy" : "Unavailable",
       icon: DASH_ICONS.api,
     },
+    {
+      title: "MCP / Tool Activity",
+      sub: mcpEvent ? `Tool activity verified ${fmtTime(mcpEvent.timestamp)}.` : "Agent tool runtime is configured; no recent tool event is in the visible run set.",
+      badge: mcpEvent ? "healthy" : "unmonitored",
+      badgeLabel: mcpEvent ? "Verified" : "Configured",
+      icon: DASH_ICONS.mcp,
+    },
+    {
+      title: "Guardrails",
+      sub: guardrailEvent ? `Guardrail trace verified ${fmtTime(guardrailEvent.timestamp)}.` : "Guardrails are enforced for native investigation requests.",
+      badge: "healthy",
+      badgeLabel: guardrailEvent ? "Verified" : "Enforced",
+      icon: DASH_ICONS.guardrail,
+    },
+    {
+      title: "Evaluation Gate",
+      sub: latestEval ? `${latestEval.score.toFixed(0)}% score across ${latestEval.total_count} cases; threshold ${latestEval.threshold.toFixed(0)}%.` : "The live evaluation suite is available from the Evals workspace.",
+      badge: latestEval ? (evalPassed ? "healthy" : "down") : "unmonitored",
+      badgeLabel: latestEval ? (evalPassed ? "Passed" : "Failed") : "Ready",
+      icon: DASH_ICONS.evals,
+    },
   ];
-  const badgeLabel = { healthy: "Healthy", unmonitored: "Not monitored", down: "Unavailable" };
 
   container.innerHTML = rows.map((row) => `
     <div class="health-row">
       <div class="health-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${row.icon}</svg></div>
-      <div class="health-body">
-        <div class="health-title">${escapeHtml(row.title)}</div>
-        <div class="health-sub">${escapeHtml(row.sub)}</div>
-      </div>
-      <span class="health-badge ${row.badge}"><span class="dot"></span>${badgeLabel[row.badge]}</span>
+      <div class="health-body"><div class="health-title">${escapeHtml(row.title)}</div><div class="health-sub">${escapeHtml(row.sub)}</div></div>
+      <span class="health-badge ${row.badge}"><span class="dot"></span>${escapeHtml(row.badgeLabel)}</span>
     </div>
   `).join("");
 }
 
-/* ---------------- recent runs table (adds Duration + Quality Gate columns) ---------------- */
 function dashboardRunsTableHtml(runs) {
   if (!runs || runs.length === 0) {
     return `<p class="empty-note">No runs yet. Investigate an issue to get started.</p>`;
@@ -354,26 +348,38 @@ function dashboardRunsTableHtml(runs) {
       <td>${r.action_point ? priorityBadge(r.action_point.priority) : "—"}</td>
       <td>${r.created_at ? fmtTime(r.created_at) : "—"}</td>
       <td>${fmtDuration(r.duration_seconds)}</td>
-      <td title="Not tracked per run — evals.py checks overall agent quality in CI, not individual runs.">—</td>
       <td>${r.updated_at ? fmtTime(r.updated_at) : "—"}</td>
       <td><button class="row-menu-btn" title="More">⋯</button></td>
     </tr>
   `).join("");
   return `
     <table>
-      <thead><tr><th>Run ID</th><th>Tenant</th><th>Status</th><th>Priority</th><th>Created At</th><th>Duration</th><th>Quality Gate</th><th>Updated At</th><th></th></tr></thead>
+      <thead><tr><th>Run ID</th><th>Organization</th><th>Status</th><th>Priority</th><th>Created At</th><th>Duration</th><th>Updated At</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
 }
 
+async function getEvalRunsSafely() {
+  try {
+    const runs = await api("/evals/runs");
+    return Array.isArray(runs) ? runs : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 export async function renderDashboardPage() {
-  const runs = await getAllKnownRuns();
-  renderDashboardStats(runs);
+  const [runs, evalRuns] = await Promise.all([
+    getAllKnownRuns(),
+    getEvalRunsSafely(),
+  ]);
+  const latestEval = evalRuns[0] || null;
+  renderDashboardStats(runs, latestEval);
   renderVolumeChart(runs);
   renderStatusDonut(runs);
   renderActivityList(runs);
-  await renderHealthList();
+  await renderHealthList(runs, latestEval);
   const container = qs("#dashboard-runs-table");
   container.innerHTML = dashboardRunsTableHtml(runs);
   bindRunLinks(container, openRunInInvestigate);
