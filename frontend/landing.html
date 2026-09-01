@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="CorrelAct is a human-led operational intelligence workspace where browser agents investigate evidence, recommend actions, wait for human approval, and execute only approved work." />
+  <title>CorrelAct — Human-led operational intelligence for AI agents</title>
+  <link rel="stylesheet" href="/landing.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="CorrelAct home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 28 28" fill="none"><path d="M6 14a8 8 0 0 1 8-8h4"/><path d="M22 14a8 8 0 0 1-8 8h-4"/><circle cx="7" cy="14" r="2.6"/><circle cx="21" cy="14" r="2.6"/></svg>
+      </span>
+      <span>CorrelAct</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="#workflow">Workflow</a>
+      <a href="#product">Product</a>
+      <a href="#trust">Trust model</a>
+    </nav>
+    <a class="header-cta" href="/app">Open CorrelAct <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero section-shell">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="live-dot"></span> Browser-native human + agent operations</div>
+        <h1>Operational intelligence where <span>humans remain the trust boundary.</span></h1>
+        <p class="hero-lede">CorrelAct lets an AI agent investigate evidence across operational systems, correlate the issue, recommend a next action, and execute only after a human approves the exact scope.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="/app">Open the app <span aria-hidden="true">→</span></a>
+          <a class="button button-secondary" href="#workflow">See how it works</a>
+        </div>
+        <div class="hero-proof" aria-label="Product characteristics">
+          <span><b>01</b> Read-only investigation</span>
+          <span><b>02</b> Human approval</span>
+          <span><b>03</b> Auditable execution</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" id="product" aria-label="CorrelAct product preview">
+        <div class="preview-frame">
+          <div class="preview-topbar">
+            <div class="preview-brand"><span class="preview-logo"></span> CorrelAct</div>
+            <div class="preview-org">NorthStar <span>⌄</span></div>
+            <div class="preview-health"><span></span> Operational</div>
+          </div>
+          <div class="preview-body">
+            <aside class="preview-sidebar" aria-hidden="true">
+              <i class="active"></i><i></i><i></i><i></i><i></i><i></i>
+            </aside>
+            <div class="preview-content">
+              <div class="preview-heading">
+                <div><small>INVESTIGATION</small><h3>ACME renewal blocked</h3></div>
+                <span class="status-chip">Awaiting approval</span>
+              </div>
+              <div class="evidence-grid">
+                <article><span class="source-icon">S</span><small>SUPPORT</small><b>Invoice amount disputed</b><p>Customer reports incorrect billing and renewal impact.</p></article>
+                <article><span class="source-icon">C</span><small>CRM</small><b>$120k renewal blocked</b><p>Enterprise account is active; renewal status is blocked.</p></article>
+                <article><span class="source-icon">B</span><small>BILLING</small><b>Invoice dispute open</b><p>Billing status confirms an unresolved invoice dispute.</p></article>
+              </div>
+              <div class="correlation-row">
+                <div class="correlation-line"><span></span><span></span><span></span></div>
+                <div class="correlation-card">
+                  <div><small>CORRELATED FINDING</small><strong>Invoice dispute is blocking the $120k renewal.</strong></div>
+                  <span class="confidence">98% confidence</span>
+                </div>
+              </div>
+              <div class="action-card">
+                <div class="action-title"><span>Proposed Action</span><span class="approval-lock">Human approval required</span></div>
+                <strong>Resolve ACME invoice discrepancy with Billing</strong>
+                <p>External write capability remains locked until the reviewer approves this proposal.</p>
+                <div class="authority-strip">
+                  <span class="enabled">✓ Read</span>
+                  <span class="enabled">✓ Propose</span>
+                  <span class="locked">⌁ Execute locked</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workflow-section" id="workflow">
+      <div class="section-shell">
+        <div class="section-intro">
+          <span class="section-kicker">Progressive authority</span>
+          <h2>The agent gets exactly the authority the workflow allows.</h2>
+          <p>CorrelAct separates investigation, recommendation, human decision, and execution instead of treating tool access as one permanent permission.</p>
+        </div>
+        <div class="workflow-grid">
+          <article class="workflow-step"><span class="step-number">01</span><div class="step-icon">⌕</div><h3>Investigate</h3><p>Read operational evidence from Support, CRM, and Billing through browser-exposed tools.</p><span class="step-state state-read">READ</span></article>
+          <article class="workflow-step"><span class="step-number">02</span><div class="step-icon">⌘</div><h3>Correlate</h3><p>Connect evidence into one business finding with source context and confidence.</p><span class="step-state state-read">REASON</span></article>
+          <article class="workflow-step"><span class="step-number">03</span><div class="step-icon">◇</div><h3>Recommend</h3><p>Submit a scoped Action Point. No external side effect occurs during investigation.</p><span class="step-state state-propose">PROPOSE</span></article>
+          <article class="workflow-step human-step"><span class="step-number">04</span><div class="step-icon">✓</div><h3>Human decides</h3><p>A reviewer approves or rejects the exact proposal before write authority is exposed.</p><span class="step-state state-human">HUMAN</span></article>
+          <article class="workflow-step"><span class="step-number">05</span><div class="step-icon">↗</div><h3>Execute</h3><p>The agent performs only the approved write action, with tenant scope and idempotency enforced.</p><span class="step-state state-execute">EXECUTE</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-section" id="trust">
+      <div class="section-shell trust-grid">
+        <div class="trust-copy">
+          <span class="section-kicker">Trust by design</span>
+          <h2>Human approval is not a prompt. It is an execution boundary.</h2>
+          <p>CorrelAct keeps consequential writes behind server-enforced workflow state, organization scope, and idempotency checks. The browser agent can recommend before approval, but it cannot silently turn a recommendation into an external action.</p>
+          <a class="text-link" href="/app">Open the secured workspace <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="trust-stack">
+          <div class="trust-item"><span>01</span><div><b>Organization-scoped access</b><p>Users see only the organizations assigned to their authenticated session.</p></div></div>
+          <div class="trust-item"><span>02</span><div><b>Approval-gated writes</b><p>Execution is rejected until the run reaches the approved state.</p></div></div>
+          <div class="trust-item"><span>03</span><div><b>Idempotent execution</b><p>Repeated requests resolve to the same approved action instead of creating duplicates.</p></div></div>
+          <div class="trust-item"><span>04</span><div><b>Auditable outcome</b><p>Tool calls, human decisions, and execution results remain traceable to the run.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="section-shell cta-panel">
+        <div><span class="section-kicker">CorrelAct</span><h2>Investigate broadly. Act narrowly.</h2><p>Explore the authenticated product workspace and its human-led agent workflow.</p></div>
+        <a class="button button-light" href="/app">Open CorrelAct <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer section-shell">
+    <div class="footer-brand"><span class="brand-mark small" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none"><path d="M6 14a8 8 0 0 1 8-8h4"/><path d="M22 14a8 8 0 0 1-8 8h-4"/><circle cx="7" cy="14" r="2.6"/><circle cx="21" cy="14" r="2.6"/></svg></span><span>CorrelAct</span></div>
+    <p>Human-led operational intelligence for AI agents.</p>
+    <a href="/app">Secured app ↗</a>
+  </footer>
+</body>
+</html>
