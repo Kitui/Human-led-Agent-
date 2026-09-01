@@ -2,7 +2,18 @@
  * Authentication remains owned by auth.js and the existing FastAPI endpoints.
  * This module deliberately preserves the DOM ids auth.js depends on. */
 
+function ensureLoginPolishStyles() {
+  if (document.querySelector('link[data-correlact-fixes]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "/correlact-fixes.css";
+  link.dataset.correlactFixes = "true";
+  document.head.appendChild(link);
+}
+
 export function renderLoginShell() {
+  ensureLoginPolishStyles();
+
   const screen = document.querySelector("#login-screen");
   if (!screen || screen.dataset.correlactLogin === "ready") return;
 

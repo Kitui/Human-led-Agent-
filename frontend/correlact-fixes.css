@@ -1,0 +1,95 @@
+/* Final CorrelAct polish layer: exact supplied logo + login stability fixes. */
+
+/* Use the supplied CorrelAct artwork instead of any generated mark. */
+.topbar .logo {
+  width: 112px !important;
+  height: 58px !important;
+  flex: 0 0 112px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent url('/assets/correlact-logo.png') center / contain no-repeat !important;
+}
+.topbar .logo svg { display: none !important; }
+.topbar .brand { display: none !important; }
+
+.login-brand {
+  width: 190px !important;
+  height: 107px !important;
+  margin-bottom: 28px !important;
+  background: transparent url('/assets/correlact-logo.png') left center / contain no-repeat !important;
+}
+.login-brand > * { display: none !important; }
+
+/* Keep native/browser autofill from flashing bright white on the dark login. */
+.login-input-wrap input {
+  color-scheme: dark;
+  caret-color: #f5f7fb;
+}
+.login-input-wrap input:-webkit-autofill,
+.login-input-wrap input:-webkit-autofill:hover,
+.login-input-wrap input:-webkit-autofill:focus,
+.login-input-wrap input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f5f7fb !important;
+  caret-color: #f5f7fb !important;
+  -webkit-box-shadow: 0 0 0 1000px #091727 inset !important;
+  box-shadow: 0 0 0 1000px #091727 inset !important;
+  border-color: #34485f !important;
+  transition: background-color 9999s ease-out 0s;
+}
+.login-input-wrap input:-webkit-autofill:focus {
+  border-color: #ef343b !important;
+  -webkit-box-shadow: 0 0 0 1000px #091727 inset, 0 0 0 3px rgba(239,43,50,.1) !important;
+  box-shadow: 0 0 0 1000px #091727 inset, 0 0 0 3px rgba(239,43,50,.1) !important;
+}
+
+/* Reserve the validation row so an error does not make the card jump. */
+.login-panel #login-error {
+  min-height: 39px;
+  box-sizing: border-box;
+}
+.login-panel #login-error.hidden {
+  display: block !important;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Prevent bottom-row crowding/overlap on shorter desktop browser viewports. */
+@media (min-width: 981px) and (max-height: 820px) {
+  .correlact-login-shell {
+    min-height: 100dvh;
+    align-items: center;
+    gap: clamp(30px, 4vw, 58px);
+    padding: 22px clamp(34px, 5vw, 68px);
+  }
+  .login-brand { width: 150px !important; height: 84px !important; margin-bottom: 12px !important; }
+  .login-story-rule { margin-bottom: 18px; }
+  .login-story h1 { font-size: clamp(40px, 4.2vw, 56px); }
+  .login-story-copy { margin-top: 16px; font-size: 14px; line-height: 1.55; }
+  .login-signal-visual { height: 82px; margin: 12px 0 10px; }
+  .login-signal-visual::before { top: 20px; }
+  .login-signal-visual::after { top: 42px; }
+  .login-principles { gap: 14px; }
+  .login-principle { padding-top: 10px; }
+  .login-principle-icon { width: 38px; height: 38px; margin-bottom: 8px; }
+  .login-principle p { font-size: 11.5px; line-height: 1.35; }
+  .login-panel { padding: 28px 32px; }
+  .login-panel-subtitle { margin-bottom: 20px; }
+  .login-field { margin-bottom: 14px; }
+  .login-input-wrap input { height: 48px; }
+  .login-panel #login-submit-btn { min-height: 48px; }
+  .login-security-note { margin-top: 14px; }
+}
+
+@media (min-width: 981px) and (max-height: 700px) {
+  .login-signal-visual { display: none; }
+  .login-principle p { display: none; }
+  .login-principle { display: grid; grid-template-columns: 38px 1fr; align-items: center; gap: 8px; }
+  .login-principle-icon { margin: 0; }
+}
+
+@media (max-width: 620px) {
+  .login-brand { width: 142px !important; height: 80px !important; margin-bottom: 14px !important; }
+  .topbar .logo { width: 92px !important; height: 50px !important; flex-basis: 92px !important; }
+}

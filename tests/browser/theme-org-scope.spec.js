@@ -37,10 +37,11 @@ async function createProposal(page, tenantId, suffix) {
 
 for (const viewport of [
   { width: 1440, height: 1000 },
+  { width: 1366, height: 680 },
   { width: 1024, height: 900 },
   { width: 390, height: 844 },
 ]) {
-  test(`secured login uses CorrelAct theme and stays contained at ${viewport.width}px`, async ({ page }) => {
+  test(`secured login uses CorrelAct theme and stays contained at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(`${BASE_URL}/app`, { waitUntil: "domcontentloaded" });
 
@@ -55,8 +56,19 @@ for (const viewport of [
     const primary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim());
     expect(primary.toLowerCase()).toBe("#ef2b32");
 
+    const logoBackground = await page.locator(".login-brand").evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(logoBackground).toContain("correlact-logo.png");
+    const logoResponse = await page.request.get(`${BASE_URL}/assets/correlact-logo.png`);
+    expect(logoResponse.ok()).toBe(true);
+    expect((await logoResponse.body()).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(overflow).toBe(false);
+
+    if (viewport.width >= 981 && viewport.height <= 700) {
+      const verticalOverflow = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 2);
+      expect(verticalOverflow).toBe(false);
+    }
 
     await page.locator("#login-password").fill("visible-test");
     await expect(page.locator("#login-password")).toHaveAttribute("type", "password");
