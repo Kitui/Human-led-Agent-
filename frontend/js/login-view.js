@@ -17,7 +17,7 @@ function ensureLoginPolishStyles() {
   if (link) return link;
   link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "/correlact-fixes.css";
+  link.href = "/correlact-fixes.css?v=20260901d";
   link.dataset.correlactFixes = "true";
   document.head.appendChild(link);
   return link;
@@ -32,6 +32,23 @@ function stylesheetReady(link) {
   });
 }
 
+function imageReady(image) {
+  if (!image) return Promise.resolve();
+  if (image.complete && image.naturalWidth > 0) {
+    return typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const done = async () => {
+      if (image.naturalWidth > 0 && typeof image.decode === "function") {
+        try { await image.decode(); } catch (_) { /* load event is sufficient */ }
+      }
+      resolve();
+    };
+    image.addEventListener("load", done, { once: true });
+    image.addEventListener("error", done, { once: true });
+  });
+}
+
 function revealStableLogin(screen, polishLink) {
   const styleLinks = [
     document.querySelector('link[data-correlact-ui]'),
@@ -39,8 +56,12 @@ function revealStableLogin(screen, polishLink) {
     document.querySelector('link[data-correlact-theme]'),
     polishLink,
   ].filter(Boolean);
+  const logoImage = screen.querySelector(".login-brand img");
 
+  let revealed = false;
   const reveal = () => {
+    if (revealed) return;
+    revealed = true;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         document.documentElement.classList.remove("correlact-login-booting");
@@ -49,8 +70,11 @@ function revealStableLogin(screen, polishLink) {
     });
   };
 
-  Promise.all(styleLinks.map(stylesheetReady)).then(reveal);
-  window.setTimeout(reveal, 1600);
+  Promise.all([
+    ...styleLinks.map(stylesheetReady),
+    imageReady(logoImage),
+  ]).then(reveal);
+  window.setTimeout(reveal, 2500);
 }
 
 export function renderLoginShell() {
@@ -64,46 +88,37 @@ export function renderLoginShell() {
     <div class="correlact-login-shell">
       <section class="login-story" aria-label="About CorrelAct">
         <div class="login-brand">
-          <img src="/assets/correlact-logo.png" alt="CorrelAct — Investigate, Correlate, Act" />
+          <img src="/assets/correlact-logo.png?v=20260901d" alt="CorrelAct — Investigate, Correlate, Act" width="240" height="135" />
         </div>
 
         <div class="login-story-rule"></div>
         <h1>
-          <span>Investigate.</span>
-          <span>Correlate.</span>
-          <span class="act">Act.</span>
+          <span>Human-led</span>
+          <span>operational intelligence</span>
         </h1>
-        <p class="login-story-copy">CorrelAct helps operations teams investigate issues, correlate evidence, and act with confidence while consequential work remains human-controlled.</p>
-
-        <div class="login-signal-visual" aria-hidden="true">
-          <span class="signal-node" style="left:18%;top:84px;--stem:48px"></span>
-          <span class="signal-node" style="left:38%;top:52px;--stem:64px"></span>
-          <span class="signal-node" style="left:55%;top:92px;--stem:44px"></span>
-          <span class="signal-node" style="left:72%;top:35px;--stem:82px"></span>
-          <span class="signal-node" style="left:87%;top:74px;--stem:58px"></span>
-        </div>
+        <p class="login-story-copy">CorrelAct helps operations teams uncover issues, connect evidence, and move forward with confidence while keeping consequential work under human control.</p>
 
         <div class="login-principles">
           <article class="login-principle">
             <span class="login-principle-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/><path d="M7.5 10.5h6"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
             </span>
-            <strong>Investigate</strong>
-            <p>Find the operational cause with evidence.</p>
+            <strong>Issue Discovery</strong>
+            <p>Identify the operational cause with clear evidence.</p>
           </article>
           <article class="login-principle">
             <span class="login-principle-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="19" cy="12" r="2"/><path d="m7 11 3.2-2.4M13.8 8.5 17 11"/></svg>
             </span>
-            <strong>Correlate</strong>
-            <p>Connect signals and surface the truth.</p>
+            <strong>Connected Evidence</strong>
+            <p>Unify signals and surface what matters most.</p>
           </article>
           <article class="login-principle">
             <span class="login-principle-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-8 12h7l-1 8 8-12h-7z"/></svg>
             </span>
-            <strong>Act</strong>
-            <p>Execute only within approved authority.</p>
+            <strong>Governed Execution</strong>
+            <p>Move forward within approved authority and oversight.</p>
           </article>
         </div>
       </section>

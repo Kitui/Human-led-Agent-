@@ -28,6 +28,11 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Node (Playwright browser test runner, installed ephemerally by CI/local runs)
+node_modules/
+test-results/
+playwright-report/
+
 # IDE / editor
 .vscode/
 .idea/
