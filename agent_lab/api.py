@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,6 +84,8 @@ app = FastAPI(
     ),
     lifespan=lifespan,
 )
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 PLATFORM_ADMIN_USERNAME = os.getenv(
     "CORRELACT_PLATFORM_ADMIN_USERNAME",
@@ -202,6 +205,22 @@ def _clear_browser_session_cookie(response: Response, request: Request) -> None:
         httponly=True,
         samesite="lax",
     )
+
+
+@app.get("/", include_in_schema=False)
+async def public_landing() -> FileResponse:
+    """Public project page used for previews, discovery, and challenge review."""
+    return FileResponse(FRONTEND_DIR / "landing.html")
+
+
+@app.get("/app", include_in_schema=False)
+async def secured_app_shell() -> FileResponse:
+    """Serve the authenticated CorrelAct application shell.
+
+    Authentication remains enforced by the existing session/API boundary; this
+    route only separates the public project preview from the secured product UI.
+    """
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/health")
@@ -593,8 +612,6 @@ async def update_tenant_settings_route(
 
 
 # Mounted last so it never shadows the API routes above — Starlette matches
-# routes in registration order, so unmatched paths (e.g. "/", "/app.js")
-# fall through to serving the static frontend, while "/health", "/runs", etc.
-# are always resolved by the routes declared first.
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+# routes in registration order. The explicit public root and /app routes above
+# therefore win, while shared frontend assets still resolve from this mount.
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
