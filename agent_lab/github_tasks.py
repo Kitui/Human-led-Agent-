@@ -52,6 +52,8 @@ class GitHubTaskClient:
 
     @staticmethod
     def idempotency_marker(idempotency_key: str) -> str:
+        # Legacy marker retained so retries can still reconcile tasks created
+        # before the CorrelAct product rename.
         return f"<!-- human-led-agent-idempotency:{idempotency_key} -->"
 
     def _headers(self) -> dict[str, str]:
@@ -167,7 +169,7 @@ class GitHubTaskClient:
             f"**Priority:** {priority}\n\n"
             f"**Description:** {description}\n\n"
             "---\n"
-            "Created by the Human-Led Agent Lab after explicit human approval.\n\n"
+            "Created by CorrelAct after explicit human approval.\n\n"
             f"{marker}"
         )
 
