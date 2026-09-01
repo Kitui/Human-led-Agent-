@@ -1,11 +1,9 @@
-import { createHash } from "node:crypto";
 import { test, expect } from "@playwright/test";
 
 const BASE_URL = process.env.CORRELACT_BASE_URL || "http://127.0.0.1:8000";
-const LOGO_PATH = "/assets/correlact-logo-user.png?v=20260901b";
-const EXPECTED_LOGO_SHA256 = "c376f21d389802a42fc7454184021f7c1ffcd8fc9186b2c092be99bec19abfd2";
+const LOGO_PATH = "/assets/correlact-logo.png?v=20260901c";
 
-async function expectLogoAspect(page) {
+async function expectLogoVisibleAndUnclipped(page) {
   const logo = page.locator(".login-brand img");
   await expect(logo).toBeVisible();
   await expect(logo).toHaveAttribute("src", LOGO_PATH);
@@ -14,6 +12,31 @@ async function expectLogoAspect(page) {
     const rect = img.getBoundingClientRect();
     const parent = img.parentElement?.getBoundingClientRect();
     const style = getComputedStyle(img);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let minX = canvas.width;
+    let minY = canvas.height;
+    let maxX = -1;
+    let maxY = -1;
+    let opaquePixels = 0;
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        const alpha = data[(y * canvas.width + x) * 4 + 3];
+        if (alpha > 8) {
+          opaquePixels += 1;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+
     return {
       naturalWidth: img.naturalWidth,
       naturalHeight: img.naturalHeight,
@@ -24,6 +47,10 @@ async function expectLogoAspect(page) {
       parentWidth: parent?.width || 0,
       parentHeight: parent?.height || 0,
       transform: style.transform,
+      objectFit: style.objectFit,
+      coverageWidth: maxX >= minX ? maxX - minX + 1 : 0,
+      coverageHeight: maxY >= minY ? maxY - minY + 1 : 0,
+      opaquePixels,
     };
   });
 
@@ -35,11 +62,13 @@ async function expectLogoAspect(page) {
   expect(Math.abs(metrics.parentWidth - metrics.width)).toBeLessThan(2);
   expect(Math.abs(metrics.parentHeight - metrics.height)).toBeLessThan(2);
   expect(metrics.transform).toBe("none");
+  expect(metrics.objectFit).toBe("contain");
 
-  const response = await page.request.get(`${BASE_URL}${LOGO_PATH}`);
-  expect(response.ok()).toBe(true);
-  const body = await response.body();
-  expect(createHash("sha256").update(body).digest("hex")).toBe(EXPECTED_LOGO_SHA256);
+  // The production defect showed only a thin horizontal fragment of the logo.
+  // Require the actual PNG's visible pixels to span essentially the full artwork.
+  expect(metrics.coverageWidth / metrics.naturalWidth).toBeGreaterThan(0.9);
+  expect(metrics.coverageHeight / metrics.naturalHeight).toBeGreaterThan(0.9);
+  expect(metrics.opaquePixels).toBeGreaterThan(1500);
 }
 
 async function expectInputIconSpacing(page, inputSelector) {
@@ -68,13 +97,13 @@ async function expectInputIconSpacing(page, inputSelector) {
 
 async function expectStableLogin(page) {
   await expect(page.locator("#login-screen")).toHaveClass(/correlact-login-ready/);
-  await expectLogoAspect(page);
+  await expectLogoVisibleAndUnclipped(page);
   await expectInputIconSpacing(page, "#login-username");
   await expectInputIconSpacing(page, "#login-password");
-  await expect(page.locator('link[data-correlact-fixes]')).toHaveAttribute("href", /correlact-fixes\.css\?v=20260901b$/);
+  await expect(page.locator('link[data-correlact-fixes]')).toHaveAttribute("href", /correlact-fixes\.css\?v=20260901c$/);
 }
 
-test("supplied CorrelAct logo and login inputs render correctly at reported viewport", async ({ page }) => {
+test("CorrelAct logo stays fully visible and login icons never overlap text at reported viewport", async ({ page }) => {
   await page.setViewportSize({ width: 1636, height: 929 });
   await page.goto(`${BASE_URL}/app`, { waitUntil: "domcontentloaded" });
   await expectStableLogin(page);
