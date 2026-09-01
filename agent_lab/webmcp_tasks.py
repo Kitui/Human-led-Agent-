@@ -156,12 +156,12 @@ async def execute_webmcp_approved_action(
     run_id: str,
     customer_name: str,
     *,
-    expected_execution_type: str,
+    expected_execution_type: str | None = None,
 ) -> WorkflowRun:
     """Execute the single capability bound to an already-approved Action Point.
 
-    Every write adapter reuses this state/tenant/evidence/idempotency boundary.
-    The browser tool selects only the run; it cannot alter the approved action,
+    Every write adapter reuses this state/evidence/idempotency boundary. The
+    browser tool selects only the run; it cannot alter the approved action,
     status transition, priority, target team, organization, or customer.
     """
     orm_row = await db.get(WorkflowRunORM, run_id)
@@ -177,7 +177,7 @@ async def execute_webmcp_approved_action(
         raise InvalidRunStateError("Run has no approved Action Point to execute.")
 
     actual_execution_type = approved_execution_type(run)
-    if actual_execution_type != expected_execution_type:
+    if expected_execution_type is not None and actual_execution_type != expected_execution_type:
         raise InvalidRunStateError(
             f"Approved run authorizes {actual_execution_type}, not {expected_execution_type}."
         )
@@ -311,12 +311,12 @@ async def execute_webmcp_approved_task(
     run_id: str,
     customer_name: str,
 ) -> WorkflowRun:
-    return await execute_webmcp_approved_action(
-        db,
-        run_id,
-        customer_name,
-        expected_execution_type="create_task",
-    )
+    """Compatibility entrypoint used by /webmcp/tasks.
+
+    The approved run selects the adapter; no action type is accepted from the
+    execution request, so the caller cannot switch capabilities after approval.
+    """
+    return await execute_webmcp_approved_action(db, run_id, customer_name)
 
 
 async def execute_webmcp_approved_crm_status(
