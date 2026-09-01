@@ -11,7 +11,7 @@ test.use({
 
 async function openSettings(page, viewport) {
   await page.setViewportSize(viewport);
-  await page.goto(`${BASE_URL}/#settings`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE_URL}/app#settings`, { waitUntil: "domcontentloaded" });
 
   await page.locator("#login-username").fill(USERNAME);
   await page.locator("#login-password").fill(PASSWORD);
