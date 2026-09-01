@@ -1,3 +1,4 @@
+import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -83,6 +84,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+PLATFORM_ADMIN_USERNAME = os.getenv(
+    "CORRELACT_PLATFORM_ADMIN_USERNAME",
+    "admin@correlact.com",
+).strip().casefold()
+
+
+def _is_platform_admin(user: AuthenticatedUser) -> bool:
+    """Return whether this authenticated identity owns platform-level controls.
+
+    The demo currently has one canonical platform administrator. Keeping the
+    username configurable avoids coupling authorization to a secret or to the
+    user's organization grants, while preserving the existing user table shape.
+    """
+    return user.username.strip().casefold() == PLATFORM_ADMIN_USERNAME
+
+
+def _require_platform_admin(user: AuthenticatedUser) -> None:
+    if not _is_platform_admin(user):
+        raise HTTPException(
+            status_code=403,
+            detail="Platform administrator access required.",
+        )
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -90,7 +114,7 @@ class LoginRequest(BaseModel):
 
 
 class InvestigationRequest(BaseModel):
-    tenant_id: str = Field(examples=["tenant_red"])
+    tenant_id: str = Field(examples=["NorthStar"])
     issue: str = Field(
         min_length=1,
         max_length=2000,
@@ -130,7 +154,7 @@ class ReviewDecisionRequest(BaseModel):
 
 
 class TenantCreateRequest(BaseModel):
-    slug: str = Field(min_length=1, max_length=60, examples=["tenant_blue"])
+    slug: str = Field(min_length=1, max_length=60, examples=["Atlas"])
     environment: Literal["Production", "Staging", "Sandbox"] = "Production"
 
 
@@ -492,16 +516,15 @@ async def read_eval_runs(
 
 @app.get("/tenants", response_model=list[Tenant])
 async def read_tenants(
-    # Deliberately not scoped to current_user.tenant_ids: unlike GET /runs,
-    # this lab has no role system to grant a user access to a tenant they
-    # didn't create, so scoping this list would make a newly-created tenant
-    # invisible to its own creator. Listing/creating tenants stays open to
-    # any logged-in user; PATCHing an existing tenant's active state or
-    # settings is scoped below -- that's the actual boundary that matters.
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[Tenant]:
-    return await list_tenants(db)
+    tenants = await list_tenants(db)
+    if _is_platform_admin(current_user):
+        return tenants
+
+    allowed = set(current_user.tenant_ids)
+    return [tenant for tenant in tenants if tenant.slug in allowed]
 
 
 @app.post("/tenants", response_model=Tenant)
@@ -510,6 +533,7 @@ async def create_tenant_route(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
+    _require_platform_admin(current_user)
     try:
         return await create_tenant(db, request.slug, request.environment)
     except DuplicateTenantError as exc:
@@ -523,13 +547,9 @@ async def update_tenant_route(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
-    # Existence checked before authorization (matches GET /runs/{id} etc.):
-    # a nonexistent tenant is a 404 even for a caller who'd also be
-    # unauthorized for it, rather than always masking it as a 403.
     if not await tenant_exists(db, slug):
         raise HTTPException(status_code=404, detail="Tenant not found.")
-    if slug not in current_user.tenant_ids:
-        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+    _require_platform_admin(current_user)
 
     try:
         return await set_tenant_active(db, slug, request.is_active)
@@ -545,7 +565,7 @@ async def read_tenant_settings(
 ) -> TenantSettings:
     if not await tenant_exists(db, slug):
         raise HTTPException(status_code=404, detail="Tenant not found.")
-    if slug not in current_user.tenant_ids:
+    if slug not in current_user.tenant_ids and not _is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
 
     try:
@@ -563,7 +583,7 @@ async def update_tenant_settings_route(
 ) -> TenantSettings:
     if not await tenant_exists(db, slug):
         raise HTTPException(status_code=404, detail="Tenant not found.")
-    if slug not in current_user.tenant_ids:
+    if slug not in current_user.tenant_ids and not _is_platform_admin(current_user):
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
 
     try:
