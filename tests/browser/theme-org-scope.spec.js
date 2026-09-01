@@ -150,6 +150,14 @@ test("hard refresh does not expose the legacy login or reflow the final composit
   expect(finalGeometry.panelBottom).toBeLessThanOrEqual(finalGeometry.viewportHeight + 1);
 });
 
+async function tenantRunCount(page, tenantId) {
+  return page.evaluate(async (tenantId) => {
+    const response = await fetch(`/runs?tenant_id=${encodeURIComponent(tenantId)}`, { credentials: "same-origin" });
+    const runs = await response.json();
+    return Array.isArray(runs) ? runs.length : 0;
+  }, tenantId);
+}
+
 test("admin organization selector re-scopes dashboard runs and visuals", async ({ page }) => {
   const observedRunRequests = [];
   page.on("request", (request) => {
@@ -165,15 +173,25 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
   await signIn(page);
   await expect(page.locator("#tenant-select-label")).toHaveText("NorthStar");
 
+  // NorthStar may already carry runs created by other browser specs that
+  // exercise a real controlled-execution flow against the shared NorthStar/ACME
+  // fixture (e.g. tests/browser/controlled-execution.spec.js). Assert relative
+  // to that baseline instead of an absolute count so this test verifies "the
+  // tenant selector shows exactly this tenant's runs," not "no sibling spec
+  // has ever touched NorthStar."
+  const northStarBaseline = await tenantRunCount(page, "NorthStar");
+
   await createProposal(page, "NorthStar", "one");
   await createProposal(page, "Neptune", "one");
   await createProposal(page, "Neptune", "two");
 
   await page.locator('.nav-item[data-page="dashboard"]').click();
   await expect(page.locator('section.page[data-page="dashboard"]')).toHaveClass(/active/);
-  await expect(page.locator("#dashboard-runs-table tbody tr")).toHaveCount(1);
-  await expect(page.locator("#dashboard-runs-table tbody tr td:nth-child(2)")).toHaveText(["NorthStar"]);
-  await expect(page.locator("#dashboard-stats .stat-card").first().locator(".stat-value")).toHaveText("1");
+  const northStarExpectedCount = northStarBaseline + 1;
+  await expect(page.locator("#dashboard-runs-table tbody tr")).toHaveCount(northStarExpectedCount);
+  const northStarOrgCells = await page.locator("#dashboard-runs-table tbody tr td:nth-child(2)").allTextContents();
+  expect(northStarOrgCells.every((text) => text === "NorthStar")).toBe(true);
+  await expect(page.locator("#dashboard-stats .stat-card").first().locator(".stat-value")).toHaveText(String(northStarExpectedCount));
 
   await page.locator("#tenant-select").click();
   await page.locator('#tenant-menu button[data-tenant="Neptune"]').click();
