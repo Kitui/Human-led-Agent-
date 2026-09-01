@@ -2,36 +2,69 @@
  * Authentication remains owned by auth.js and the existing FastAPI endpoints.
  * This module deliberately preserves the DOM ids auth.js depends on. */
 
+const criticalBootStyle = document.createElement("style");
+criticalBootStyle.dataset.correlactLoginBoot = "true";
+criticalBootStyle.textContent = `
+  html.correlact-login-booting,
+  html.correlact-login-booting body { background:#06111f !important; }
+  html.correlact-login-booting #login-screen { visibility:hidden !important; background:#06111f !important; }
+`;
+document.head.appendChild(criticalBootStyle);
+document.documentElement.classList.add("correlact-login-booting");
+
 function ensureLoginPolishStyles() {
-  if (document.querySelector('link[data-correlact-fixes]')) return;
-  const link = document.createElement("link");
+  let link = document.querySelector('link[data-correlact-fixes]');
+  if (link) return link;
+  link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = "/correlact-fixes.css";
   link.dataset.correlactFixes = "true";
   document.head.appendChild(link);
+  return link;
+}
+
+function stylesheetReady(link) {
+  if (!link || link.sheet) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    link.addEventListener("load", done, { once: true });
+    link.addEventListener("error", done, { once: true });
+  });
+}
+
+function revealStableLogin(screen, polishLink) {
+  const styleLinks = [
+    document.querySelector('link[data-correlact-ui]'),
+    document.querySelector('link[data-correlact-layout]'),
+    document.querySelector('link[data-correlact-theme]'),
+    polishLink,
+  ].filter(Boolean);
+
+  const reveal = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove("correlact-login-booting");
+        screen.classList.add("correlact-login-ready");
+      });
+    });
+  };
+
+  Promise.all(styleLinks.map(stylesheetReady)).then(reveal);
+  window.setTimeout(reveal, 1600);
 }
 
 export function renderLoginShell() {
-  ensureLoginPolishStyles();
-
   const screen = document.querySelector("#login-screen");
   if (!screen || screen.dataset.correlactLogin === "ready") return;
 
+  const polishLink = ensureLoginPolishStyles();
   screen.dataset.correlactLogin = "ready";
   screen.classList.add("correlact-login");
   screen.innerHTML = `
     <div class="correlact-login-shell">
       <section class="login-story" aria-label="About CorrelAct">
-        <div class="login-brand" aria-label="CorrelAct">
-          <span class="login-brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none">
-              <circle cx="23" cy="24" r="17" stroke="#0a2445" stroke-width="5" stroke-dasharray="82 28" stroke-linecap="round"/>
-              <path d="M13 30 23 14l11 20" stroke="#0a2445" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="13" cy="24" r="3" fill="#ef2b32"/>
-              <path d="M31 34 41 17" stroke="#ef2b32" stroke-width="3.8" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span>Correl<span class="brand-act">Act</span></span>
+        <div class="login-brand">
+          <img src="/assets/correlact-logo.png" alt="CorrelAct — Investigate, Correlate, Act" />
         </div>
 
         <div class="login-story-rule"></div>
@@ -105,6 +138,8 @@ export function renderLoginShell() {
         </p>
       </section>
     </div>`;
+
+  revealStableLogin(screen, polishLink);
 
   const toggle = document.querySelector("#login-password-toggle");
   const password = document.querySelector("#login-password");

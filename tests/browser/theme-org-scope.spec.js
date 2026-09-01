@@ -36,15 +36,29 @@ async function createProposal(page, tenantId, suffix) {
 }
 
 for (const viewport of [
+  { width: 1920, height: 940 },
   { width: 1440, height: 1000 },
   { width: 1366, height: 680 },
   { width: 1024, height: 900 },
   { width: 390, height: 844 },
 ]) {
-  test(`secured login uses CorrelAct theme and stays contained at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`secured login uses supplied CorrelAct logo and stays contained at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__correlactCLS = 0;
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (!entry.hadRecentInput) window.__correlactCLS += entry.value;
+          }
+        });
+        observer.observe({ type: "layout-shift", buffered: true });
+      } catch (_) { /* layout-shift is Chromium-only; this suite runs Chromium */ }
+    });
+
     await page.setViewportSize(viewport);
     await page.goto(`${BASE_URL}/app`, { waitUntil: "domcontentloaded" });
 
+    await expect(page.locator("#login-screen")).toHaveClass(/correlact-login-ready/);
     await expect(page.locator("#login-screen")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await expect(page.getByText("Investigate.", { exact: true })).toBeVisible();
@@ -56,8 +70,20 @@ for (const viewport of [
     const primary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim());
     expect(primary.toLowerCase()).toBe("#ef2b32");
 
-    const logoBackground = await page.locator(".login-brand").evaluate((el) => getComputedStyle(el).backgroundImage);
-    expect(logoBackground).toContain("correlact-logo.png");
+    const logo = page.locator(".login-brand img");
+    await expect(logo).toBeVisible();
+    await expect(logo).toHaveAttribute("src", "/assets/correlact-logo.png");
+    const logoMetrics = await logo.evaluate((img) => ({
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      width: img.getBoundingClientRect().width,
+      height: img.getBoundingClientRect().height,
+    }));
+    expect(logoMetrics.naturalWidth).toBeGreaterThan(0);
+    expect(logoMetrics.naturalHeight).toBeGreaterThan(0);
+    expect(logoMetrics.width).toBeGreaterThan(150);
+    expect(logoMetrics.height).toBeGreaterThan(70);
+
     const logoResponse = await page.request.get(`${BASE_URL}/assets/correlact-logo.png`);
     expect(logoResponse.ok()).toBe(true);
     expect((await logoResponse.body()).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
@@ -65,10 +91,25 @@ for (const viewport of [
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(overflow).toBe(false);
 
-    if (viewport.width >= 981 && viewport.height <= 700) {
-      const verticalOverflow = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 2);
-      expect(verticalOverflow).toBe(false);
+    if (viewport.width >= 981) {
+      const geometry = await page.evaluate(() => {
+        const principles = document.querySelector(".login-principles")?.getBoundingClientRect();
+        const panel = document.querySelector(".login-panel")?.getBoundingClientRect();
+        return {
+          docTooTall: document.documentElement.scrollHeight > window.innerHeight + 2,
+          principlesBottom: principles?.bottom ?? 0,
+          panelBottom: panel?.bottom ?? 0,
+          viewportHeight: window.innerHeight,
+        };
+      });
+      expect(geometry.docTooTall).toBe(false);
+      expect(geometry.principlesBottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+      expect(geometry.panelBottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
     }
+
+    await page.waitForTimeout(250);
+    const cls = await page.evaluate(() => window.__correlactCLS || 0);
+    expect(cls).toBeLessThan(0.08);
 
     await page.locator("#login-password").fill("visible-test");
     await expect(page.locator("#login-password")).toHaveAttribute("type", "password");
@@ -78,6 +119,36 @@ for (const viewport of [
     await expect(page.locator("#login-password")).toHaveAttribute("type", "password");
   });
 }
+
+test("hard refresh does not expose the legacy login or reflow the final composition", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 940 });
+  await page.goto(`${BASE_URL}/app`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#login-screen")).toHaveClass(/correlact-login-ready/);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("#login-screen")).toHaveClass(/correlact-login-ready/);
+  await expect(page.locator(".login-brand img")).toBeVisible();
+  await expect(page.locator(".modal-card.login-card")).toHaveCount(0);
+
+  const finalGeometry = await page.evaluate(() => {
+    const story = document.querySelector(".login-story")?.getBoundingClientRect();
+    const principles = document.querySelector(".login-principles")?.getBoundingClientRect();
+    const panel = document.querySelector(".login-panel")?.getBoundingClientRect();
+    return {
+      overflowX: document.documentElement.scrollWidth > window.innerWidth + 2,
+      overflowY: document.documentElement.scrollHeight > window.innerHeight + 2,
+      storyBottom: story?.bottom ?? 0,
+      principlesBottom: principles?.bottom ?? 0,
+      panelBottom: panel?.bottom ?? 0,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(finalGeometry.overflowX).toBe(false);
+  expect(finalGeometry.overflowY).toBe(false);
+  expect(finalGeometry.storyBottom).toBeLessThanOrEqual(finalGeometry.viewportHeight + 1);
+  expect(finalGeometry.principlesBottom).toBeLessThanOrEqual(finalGeometry.viewportHeight + 1);
+  expect(finalGeometry.panelBottom).toBeLessThanOrEqual(finalGeometry.viewportHeight + 1);
+});
 
 test("admin organization selector re-scopes dashboard runs and visuals", async ({ page }) => {
   const observedRunRequests = [];
