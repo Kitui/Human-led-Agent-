@@ -55,16 +55,20 @@ async def test_clean_tasks_workspace_url(client):
     assert "/js/tasks.js" in response.text
 
 
-def test_tasks_workspace_registers_write_tool_and_calls_controlled_backend():
+def test_tasks_workspace_registers_controlled_write_tools_and_calls_same_backend_gate():
     source = (
         ROOT / "frontend" / "js" / "webmcp" / "task-tools.js"
     ).read_text(encoding="utf-8")
 
     assert 'name: "create_task"' in source
+    assert 'name: "update_crm_status"' in source
     assert "readOnlyHint: false" in source
-    assert 'api("/webmcp/tasks"' in source
-    assert "already been approved by a human" in source
+    assert '"/webmcp/tasks"' in source
+    assert '"/webmcp/crm-status"' in source
+    assert "EXECUTION_ENDPOINT_BY_TYPE" in source
+    assert "human-approved" in source
     assert 'required: ["run_id", "tenant_id", "customer_name"]' in source
+    assert "actualType !== expectedType" in source
 
 
 def test_tasks_workspace_refreshes_after_webmcp_execution():
@@ -80,16 +84,18 @@ def test_tasks_workspace_refreshes_after_webmcp_execution():
     assert "window.dispatchEvent(new CustomEvent(TASK_EXECUTED_EVENT" in tool_source
     assert "window.addEventListener(TASK_EXECUTED_EVENT" in workspace_source
     assert "showExecutionSuccess(event.detail);" in workspace_source
-    assert "await loadApprovedRuns();" in workspace_source
+    assert "loadApprovedRuns().catch(console.error)" in workspace_source
 
 
-def test_approval_evidence_excludes_task_execution_results():
+def test_approval_evidence_excludes_all_write_execution_results():
     source = (ROOT / "frontend" / "js" / "approvals.js").read_text(encoding="utf-8")
 
     assert 'event.tag === "EVIDENCE"' in source
-    assert "if (parsed.created) return" in source
+    assert "if (parsed.created || parsed.updated) return" in source
     assert '"approved", "completed"' in source
-    assert "Waiting for WebMCP create_task" in source
+    assert "Waiting for WebMCP ${escapeHtml(execution.type)}" in source
+    assert "Execution Capability" in source
+    assert "Approved Execution Scope" in source
 
 
 async def test_webmcp_action_point_approval_defers_external_execution(
@@ -98,6 +104,9 @@ async def test_webmcp_action_point_approval_defers_external_execution(
 ):
     headers = await auth_headers("user@northstar.com", "northstar-test-pass")
     submitted = await _submit_webmcp_action_point(client, headers)
+
+    # Omitted execution metadata remains backward-compatible create_task.
+    assert submitted["action_point"]["execution"]["type"] == "create_task"
 
     response = await client.post(
         f"/runs/{submitted['run_id']}/approve",
@@ -113,6 +122,7 @@ async def test_webmcp_action_point_approval_defers_external_execution(
     assert any(
         event["label"] == "Execution approved by human reviewer"
         and event["tag"] == "HUMAN_APPROVAL"
+        and "create_task" in event["detail"]
         for event in body["trace"]
     )
 

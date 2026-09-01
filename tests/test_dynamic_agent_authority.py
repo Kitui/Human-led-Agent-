@@ -19,7 +19,8 @@ def test_investigation_visibly_locks_execution_authority():
     assert "deliberately absent here" in html
     assert "ACTION_POINT_SUBMITTED_EVENT" in source
     assert "Awaiting human approval" in source
-    assert "create_task remains absent from this page" in source
+    assert "No controlled write tool is exposed in this workspace" in source
+    assert "proposal-specific execution authority" in source
 
 
 def test_proposal_tool_publishes_real_submission_event():
@@ -30,7 +31,7 @@ def test_proposal_tool_publishes_real_submission_event():
     assert "new CustomEvent(ACTION_POINT_SUBMITTED_EVENT" in source
 
 
-def test_create_task_registration_has_abortable_authority_lifecycle():
+def test_controlled_write_registration_has_abortable_authority_lifecycle():
     source = (JS / "webmcp" / "task-tools.js").read_text(encoding="utf-8")
 
     assert "let registrationController = null" in source
@@ -38,10 +39,12 @@ def test_create_task_registration_has_abortable_authority_lifecycle():
     assert "{ signal: controller.signal }" in source
     assert "export function unregisterTaskWebMcpTool()" in source
     assert "registrationController.abort()" in source
-    assert "isTaskWebMcpToolRegistered()" in source
+    assert "isTaskWebMcpToolRegistered" in source
+    assert 'name: "create_task"' in source
+    assert 'name: "update_crm_status"' in source
 
 
-def test_tasks_only_expose_create_task_when_executable_approved_work_exists():
+def test_tasks_only_expose_capabilities_for_executable_approved_work():
     html = (FRONTEND / "tasks" / "index.html").read_text(encoding="utf-8")
     source = (JS / "tasks.js").read_text(encoding="utf-8")
 
@@ -51,9 +54,10 @@ def test_tasks_only_expose_create_task_when_executable_approved_work_exists():
     assert "runs.filter((run) => !!approvedCustomer(run))" in source
     assert "if (!executableRuns.length)" in source
     assert "unregisterTaskWebMcpTool()" in source
-    assert "await registerTaskWebMcpTool()" in source
-    assert source.index("if (!executableRuns.length)") < source.index("await registerTaskWebMcpTool()")
-    assert "create_task is removed from this page's WebMCP context" in source
+    assert "await registerTaskWebMcpTool(executionTypes)" in source
+    assert source.index("if (!executableRuns.length)") < source.index("await registerTaskWebMcpTool(executionTypes)")
+    assert "Write tools are removed from this page's WebMCP context" in source
+    assert "const executionTypes = [...new Set(executableRuns.map(executionType))]" in source
 
 
 def test_execution_visibly_completes_authority_before_queue_refresh():
@@ -86,6 +90,9 @@ def test_investigation_renders_evidence_correlation_chain_from_real_proposal_dat
     assert "Math.round(payload.confidence * 100)" in source
     assert '$("#correlation-sources").textContent = String(evidence.length);' in source
     assert "renderEvidenceCorrelation(event.detail);" in source
+    assert 'payload.execution?.type || "create_task"' in source
+    assert "crm_expected_status" in source
+    assert "crm_target_status" in source
     # Confidence and evidence-count must come from the agent's real submitted payload,
     # never a hardcoded or invented display value.
     assert "confidence: 0." not in source
@@ -100,6 +107,7 @@ def test_dynamic_authority_javascript_parses():
     for path in (
         JS / "investigation.js",
         JS / "tasks.js",
+        JS / "approvals.js",
         JS / "webmcp" / "action-point-tools.js",
         JS / "webmcp" / "task-tools.js",
     ):

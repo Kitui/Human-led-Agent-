@@ -1,6 +1,7 @@
 import { api, escapeHtml, fmtTime, getAuthSession, shortRunId } from "./shared.js";
 import { restoreBrowserSession } from "./auth.js";
 import {
+  executeApprovedCrmStatus,
   executeApprovedTask,
   registerTaskWebMcpTool,
   unregisterTaskWebMcpTool,
@@ -9,12 +10,25 @@ import {
 
 const $ = (selector) => document.querySelector(selector);
 
-function setWebMcpStatus({ supported, registered, locked = false }) {
+function executionType(run) {
+  return run?.action_point?.execution?.type || "create_task";
+}
+
+function executionLabel(type) {
+  return type === "update_crm_status" ? "CRM status update" : "Operational task";
+}
+
+function toolListLabel(tools = []) {
+  if (!tools.length) return "Controlled execution";
+  return tools.join(" + ");
+}
+
+function setWebMcpStatus({ supported, registered, registeredTools = [], locked = false }) {
   const el = $("#webmcp-status");
   el.classList.remove("ready", "unsupported", "locked");
   if (supported && registered) {
     el.classList.add("ready");
-    el.querySelector("span:last-child").textContent = "create_task exposed · approved authority";
+    el.querySelector("span:last-child").textContent = `${toolListLabel(registeredTools)} exposed · approved authority`;
     return;
   }
   if (supported && locked) {
@@ -42,24 +56,25 @@ function renderExecutionCompleted(result) {
   setExecuteStage(
     "COMPLETED",
     "state-complete",
-    result?.execution_result || "create_task executed. External task created.",
+    result?.execution_result || "Approved execution completed.",
   );
   $("#authority-approval").textContent = "Authority consumed for this run";
   $("#authority-scope").textContent = `${tenantId} · ${shortRunId(result?.run_id || "")}`;
-  $("#authority-exposure").textContent = "create_task authority for this run is consumed. It cannot execute again for the same run.";
+  $("#authority-exposure").textContent = "The approved capability for this run is consumed. Repeating the same invocation cannot repeat the write.";
 }
 
 function renderTaskAuthority(runs, toolState) {
   const tenantId = $("#tenant-select").value || "organization";
+  const registeredTools = toolState.registeredTools || [];
 
   if (runs.length && toolState.registered) {
     const first = runs[0];
     const customer = approvedCustomer(first) || "approved customer";
     $("#authority-phase").textContent = "Execution authority granted";
-    setExecuteStage("ENABLED", "state-enabled", "Human approval verified. create_task is exposed for the approved execution queue.");
+    setExecuteStage("ENABLED", "state-enabled", `Human approval verified. ${toolListLabel(registeredTools)} is exposed only for matching approved runs.`);
     $("#authority-approval").textContent = `${runs.length} executable approved run${runs.length === 1 ? "" : "s"} verified`;
     $("#authority-scope").textContent = `${tenantId} · ${customer} · ${shortRunId(first.run_id)}`;
-    $("#authority-exposure").textContent = "create_task is registered in this page's WebMCP context";
+    $("#authority-exposure").textContent = `${toolListLabel(registeredTools)} registered in this page's WebMCP context`;
     return;
   }
 
@@ -68,16 +83,16 @@ function renderTaskAuthority(runs, toolState) {
     setExecuteStage("UNAVAILABLE", "state-unavailable", "Human-approved work exists, but this browser does not expose the WebMCP registration API.");
     $("#authority-approval").textContent = `${runs.length} executable approved run${runs.length === 1 ? "" : "s"} verified`;
     $("#authority-scope").textContent = `${tenantId} · approved queue ready`;
-    $("#authority-exposure").textContent = "create_task cannot be exposed in this browser";
+    $("#authority-exposure").textContent = "Approved write capabilities cannot be exposed in this browser";
     return;
   }
 
   if (runs.length && toolState.supported && !toolState.registered) {
     $("#authority-phase").textContent = "Tool registration failed";
-    setExecuteStage("UNAVAILABLE", "state-unavailable", "Approval exists, but create_task could not be registered in the browser context.");
+    setExecuteStage("UNAVAILABLE", "state-unavailable", "Approval exists, but the approved write capability could not be registered in the browser context.");
     $("#authority-approval").textContent = `${runs.length} executable approved run${runs.length === 1 ? "" : "s"} verified`;
     $("#authority-scope").textContent = `${tenantId} · approved queue ready`;
-    $("#authority-exposure").textContent = "create_task registration failed";
+    $("#authority-exposure").textContent = "Controlled execution tool registration failed";
     return;
   }
 
@@ -85,7 +100,7 @@ function renderTaskAuthority(runs, toolState) {
   setExecuteStage("LOCKED", "state-locked", "No executable human-approved run exists for this organization.");
   $("#authority-approval").textContent = "Waiting for an approved run";
   $("#authority-scope").textContent = `${tenantId} · no executable approved work`;
-  $("#authority-exposure").textContent = "create_task is removed from this page's WebMCP context";
+  $("#authority-exposure").textContent = "Write tools are removed from this page's WebMCP context";
 }
 
 function renderTaskAuthoritySignedOut() {
@@ -93,7 +108,7 @@ function renderTaskAuthoritySignedOut() {
   setExecuteStage("LOCKED", "state-locked", "No execution authority exists without an authenticated CorrelAct session.");
   $("#authority-approval").textContent = "Authentication required";
   $("#authority-scope").textContent = "No organization scope";
-  $("#authority-exposure").textContent = "create_task is not exposed";
+  $("#authority-exposure").textContent = "Controlled write tools are not exposed";
 }
 
 function approvedCustomer(run) {
@@ -127,23 +142,43 @@ function runOrigin(run) {
     : "CorrelAct Investigate";
 }
 
+function executionScopeHtml(run) {
+  const type = executionType(run);
+  const execution = run?.action_point?.execution;
+  if (type === "update_crm_status") {
+    return `
+      <div class="approved-action">
+        <span>Approved execution</span>
+        <p><strong>update_crm_status</strong> · renewal_status: ${escapeHtml(execution?.crm_expected_status || "—")} → ${escapeHtml(execution?.crm_target_status || "—")}</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="approved-action">
+      <span>Approved execution</span>
+      <p><strong>create_task</strong> · one GitHub operational task using the approved team, priority and recommendation.</p>
+    </div>
+  `;
+}
+
 function showExecutionSuccess(result) {
   $("#execution-result").classList.remove("hidden", "error");
-  $("#execution-result").innerHTML = `<strong>Completed</strong><span>${escapeHtml(result?.execution_result || "Task execution completed.")}</span>`;
+  $("#execution-result").innerHTML = `<strong>Completed</strong><span>${escapeHtml(result?.execution_result || "Approved execution completed.")}</span>`;
 }
 
 function renderRuns(runs) {
   const container = $("#approved-runs");
   if (!runs.length) {
-    container.innerHTML = '<p class="empty">No approved Action Points are waiting for task execution.</p>';
+    container.innerHTML = '<p class="empty">No approved Action Points are waiting for controlled execution.</p>';
     return;
   }
 
   container.innerHTML = runs.map((run) => {
     const ap = run.action_point || {};
     const customer = approvedCustomer(run) || "—";
+    const type = executionType(run);
     return `
-      <article class="run-card" data-run-id="${escapeHtml(run.run_id)}" data-customer="${escapeHtml(customer)}">
+      <article class="run-card" data-run-id="${escapeHtml(run.run_id)}" data-customer="${escapeHtml(customer)}" data-execution-type="${escapeHtml(type)}">
         <div class="run-card-head">
           <div>
             <span class="run-id">${escapeHtml(shortRunId(run.run_id))}</span>
@@ -153,7 +188,7 @@ function renderRuns(runs) {
         </div>
         <div class="run-meta">
           <div><span>Customer</span><strong>${escapeHtml(customer)}</strong></div>
-          <div><span>Target team</span><strong>${escapeHtml(ap.target_team || "—")}</strong></div>
+          <div><span>Capability</span><strong>${escapeHtml(type)}</strong></div>
           <div><span>Priority</span><strong>${escapeHtml(ap.priority || "—")}</strong></div>
           <div><span>Source</span><strong>${escapeHtml(runOrigin(run))}</strong></div>
         </div>
@@ -161,9 +196,10 @@ function renderRuns(runs) {
           <span>Approved action</span>
           <p>${escapeHtml(ap.recommended_action || "—")}</p>
         </div>
+        ${executionScopeHtml(run)}
         <div class="scope-row"><span>Approved</span><strong>${run.updated_at ? escapeHtml(fmtTime(run.updated_at)) : "—"}</strong></div>
         <button class="execute-btn" data-execute-run="${escapeHtml(run.run_id)}" ${customer === "—" ? "disabled" : ""}>
-          Execute approved task
+          Execute ${escapeHtml(executionLabel(type))}
         </button>
       </article>
     `;
@@ -174,11 +210,14 @@ function renderRuns(runs) {
       const card = button.closest(".run-card");
       const runId = card.dataset.runId;
       const customerName = card.dataset.customer;
+      const type = card.dataset.executionType;
       const tenantId = $("#tenant-select").value;
       button.disabled = true;
       button.textContent = "Executing…";
       try {
-        const result = await executeApprovedTask(runId, tenantId, customerName);
+        const result = type === "update_crm_status"
+          ? await executeApprovedCrmStatus(runId, tenantId, customerName)
+          : await executeApprovedTask(runId, tenantId, customerName);
         showExecutionSuccess(result);
         renderExecutionCompleted(result);
         window.setTimeout(() => { loadApprovedRuns().catch(console.error); }, 2500);
@@ -187,7 +226,7 @@ function renderRuns(runs) {
         $("#execution-result").classList.add("error");
         $("#execution-result").innerHTML = `<strong>Execution failed</strong><span>${escapeHtml(error.message || "Unknown error")}</span>`;
         button.disabled = false;
-        button.textContent = "Execute approved task";
+        button.textContent = `Execute ${executionLabel(type)}`;
       }
     });
   });
@@ -198,28 +237,29 @@ async function syncTaskAuthority(executableRuns) {
 
   if (!executableRuns.length) {
     unregisterTaskWebMcpTool();
-    const state = { supported, registered: false, locked: supported };
+    const state = { supported, registered: false, registeredTools: [], locked: supported };
     setWebMcpStatus(state);
     renderTaskAuthority([], state);
     return state;
   }
 
   if (!supported) {
-    const state = { supported: false, registered: false, locked: false };
+    const state = { supported: false, registered: false, registeredTools: [], locked: false };
     setWebMcpStatus(state);
     renderTaskAuthority(executableRuns, state);
     return state;
   }
 
+  const executionTypes = [...new Set(executableRuns.map(executionType))];
   try {
-    const result = await registerTaskWebMcpTool();
+    const result = await registerTaskWebMcpTool(executionTypes);
     const state = { ...result, locked: false };
     setWebMcpStatus(state);
     renderTaskAuthority(executableRuns, state);
     return state;
   } catch (error) {
     console.error("Tasks WebMCP registration failed", error);
-    const state = { supported: true, registered: false, locked: false };
+    const state = { supported: true, registered: false, registeredTools: [], locked: false };
     setWebMcpStatus(state);
     renderTaskAuthority(executableRuns, state);
     return state;
@@ -242,7 +282,7 @@ async function init() {
 
   if (!session) {
     $("#login-required").classList.remove("hidden");
-    setWebMcpStatus({ supported: false, registered: false, locked: false });
+    setWebMcpStatus({ supported: false, registered: false, registeredTools: [], locked: false });
     renderTaskAuthoritySignedOut();
     return;
   }

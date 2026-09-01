@@ -22,6 +22,20 @@ class AgentRun(BaseModel):
     max_steps: int = 5
 
 
+class ApprovedExecution(BaseModel):
+    """Structured execution scope bound to the human-approved Action Point.
+
+    Legacy Action Points may omit this object; the controlled execution layer
+    treats those as create_task for backward compatibility. CRM status updates
+    are intentionally narrow: only renewal_status can be changed, and both the
+    expected and target values are approved before execution.
+    """
+
+    type: Literal["create_task", "update_crm_status"]
+    crm_expected_status: Literal["blocked", "normal"] | None = None
+    crm_target_status: Literal["escalation_open", "follow_up_required"] | None = None
+
+
 class ActionPoint(BaseModel):
     title: str
     issue_type: str
@@ -31,6 +45,7 @@ class ActionPoint(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     requires_human_approval: bool
     target_team: str | None = None
+    execution: ApprovedExecution | None = None
 
 
 class TraceEvent(BaseModel):
