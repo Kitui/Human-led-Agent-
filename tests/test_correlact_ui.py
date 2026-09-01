@@ -6,6 +6,7 @@ FRONTEND = ROOT / "frontend"
 
 def test_main_app_applies_correlact_branding_and_shared_ui_layer():
     main_source = (FRONTEND / "js" / "main.js").read_text(encoding="utf-8")
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
     theme_source = (FRONTEND / "correlact-theme.css").read_text(encoding="utf-8")
     login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
 
@@ -20,10 +21,10 @@ def test_main_app_applies_correlact_branding_and_shared_ui_layer():
     assert "--ca-bg: #06111f" in theme_source
     assert "--ca-primary: #ef2b32" in theme_source
 
-    # The login redesign is presentation-only: keep the exact form/field ids
-    # consumed by auth.js so authentication/session semantics do not change.
+    # The outer screen remains part of the SPA shell while login-view.js
+    # replaces only its presentation. Keep the exact ids consumed by auth.js.
+    assert 'id="login-screen"' in index_source
     for selector_id in (
-        "login-screen",
         "login-form",
         "login-username",
         "login-password",
