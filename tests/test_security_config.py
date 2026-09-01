@@ -62,40 +62,15 @@ def test_enabled_demo_users_use_only_env_supplied_passwords(monkeypatch):
     ]
 
 
-def test_legacy_password_env_names_are_temporary_migration_fallbacks(monkeypatch):
+def test_legacy_password_env_names_are_not_accepted(monkeypatch):
     _clear_demo_password_env(monkeypatch)
     monkeypatch.setenv("ENABLE_DEMO_USERS", "true")
     monkeypatch.setenv("DEMO_RED_PASSWORD", "legacy-northstar-strong-001")
     monkeypatch.setenv("DEMO_GREEN_PASSWORD", "legacy-neptune-strong-001")
     monkeypatch.setenv("DEMO_ADMIN_PASSWORD", "admin-password-strong-001")
 
-    users = configured_demo_users()
-
-    assert users[0] == (
-        "user@northstar.com",
-        "legacy-northstar-strong-001",
-        ["NorthStar"],
-    )
-    assert users[1] == (
-        "user@neptune.com",
-        "legacy-neptune-strong-001",
-        ["Neptune"],
-    )
-
-
-def test_preferred_password_env_names_override_legacy_fallbacks(monkeypatch):
-    _clear_demo_password_env(monkeypatch)
-    monkeypatch.setenv("ENABLE_DEMO_USERS", "true")
-    monkeypatch.setenv("DEMO_NORTHSTAR_PASSWORD", "preferred-northstar-strong-001")
-    monkeypatch.setenv("DEMO_RED_PASSWORD", "legacy-northstar-strong-001")
-    monkeypatch.setenv("DEMO_NEPTUNE_PASSWORD", "preferred-neptune-strong-001")
-    monkeypatch.setenv("DEMO_GREEN_PASSWORD", "legacy-neptune-strong-001")
-    monkeypatch.setenv("DEMO_ADMIN_PASSWORD", "admin-password-strong-001")
-
-    users = configured_demo_users()
-
-    assert users[0][1] == "preferred-northstar-strong-001"
-    assert users[1][1] == "preferred-neptune-strong-001"
+    with pytest.raises(RuntimeError, match="DEMO_NORTHSTAR_PASSWORD"):
+        configured_demo_users()
 
 
 def test_jwt_secret_rejects_short_value(monkeypatch):
