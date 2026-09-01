@@ -41,7 +41,7 @@ export async function registerActionPointWebMcpTool() {
   await document.modelContext.registerTool({
     name: "submit_action_point",
     title: "Submit Proposed Action for human review",
-    description: "Persist a Proposed Action in CorrelAct after gathering evidence. This creates an awaiting-approval record only and does not execute any external action. The approved execution path creates one internal task for the target team, so recommend one focused task and cite the evidence that supports it.",
+    description: "Persist a Proposed Action after gathering evidence. This creates an awaiting-approval record only and never executes a consequential action. The proposal may bind one controlled execution capability: create_task, or update_crm_status. For CRM status updates the exact expected and target renewal statuses must be included so the human approves the precise transition before the write tool becomes usable.",
     inputSchema: {
       type: "object",
       properties: {
@@ -71,7 +71,7 @@ export async function registerActionPointWebMcpTool() {
         },
         recommended_action: {
           type: "string",
-          description: "One focused internal task for the target team to perform if a human approves it. Do not claim the task or underlying business change has already been executed.",
+          description: "One focused approved action. Do not claim any external or CRM change has already been executed.",
         },
         confidence: {
           type: "number",
@@ -80,7 +80,29 @@ export async function registerActionPointWebMcpTool() {
         },
         target_team: {
           type: "string",
-          description: "Team that should own the approved task.",
+          description: "Team that should own the approved action.",
+        },
+        execution: {
+          type: "object",
+          description: "Controlled write capability to bind to this proposal. Omit for legacy create_task behavior, or explicitly select the approved capability.",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["create_task", "update_crm_status"],
+            },
+            crm_expected_status: {
+              type: "string",
+              enum: ["blocked", "normal"],
+              description: "Required for update_crm_status. Current renewal_status shown by CRM evidence.",
+            },
+            crm_target_status: {
+              type: "string",
+              enum: ["escalation_open", "follow_up_required"],
+              description: "Required for update_crm_status. Exact approved renewal_status after execution.",
+            },
+          },
+          required: ["type"],
+          additionalProperties: false,
         },
         evidence: {
           type: "array",
