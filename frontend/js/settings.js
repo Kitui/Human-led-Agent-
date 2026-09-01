@@ -1,66 +1,162 @@
 /* CorrelAct — Settings page.
  *
- * The settings surface now distinguishes configurable settings from enforced
- * platform capabilities. We do not fabricate service health or expose disabled
- * "coming soon" controls: operational cards are populated from live API/run/eval
- * evidence where possible, and deterministic policy/security controls are shown
- * as enforced read-only capabilities.
+ * The settings surface distinguishes configurable settings from enforced
+ * platform capabilities. Operational cards are populated from live API/run/eval
+ * evidence where possible, while access-sensitive organization controls are
+ * rendered according to the signed-in user's scope.
  */
 import { qs, qsa, escapeHtml, fmtTime, api, showBanner } from "./shared.js";
-import { currentTenantIds } from "./auth.js";
+import { currentTenantIds, currentUsername } from "./auth.js";
+
+const PLATFORM_ADMIN_USERNAME = "admin@correlact.com";
+
+function isPlatformAdmin() {
+  return (currentUsername() || "").toLowerCase() === PLATFORM_ADMIN_USERNAME;
+}
 
 function healthBadge(kind, label) {
   return `<span class="health-badge ${kind}"><span class="dot"></span>${escapeHtml(label)}</span>`;
 }
 
+function ensureCompletionUxStyles() {
+  if (document.getElementById("correlact-settings-completion-styles")) return;
+  const style = document.createElement("style");
+  style.id = "correlact-settings-completion-styles";
+  style.textContent = `
+    .settings-completion-card .card-sub { max-width: 620px; line-height: 1.55; }
+    .operational-list { display: grid; gap: 0; margin-top: 8px; }
+    .operational-item {
+      display: grid;
+      grid-template-columns: minmax(145px, .9fr) minmax(190px, 1.35fr) auto;
+      align-items: center;
+      gap: 14px;
+      min-height: 58px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--ca-border, #dfe5ee);
+    }
+    .operational-item:last-child { border-bottom: 0; }
+    .operational-item .label { color: var(--ca-text, #172033); font-weight: 680; line-height: 1.35; }
+    .operational-item .value { color: var(--ca-muted, #64748b); line-height: 1.45; overflow-wrap: anywhere; }
+    .settings-access-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 2px 0 16px;
+      padding: 11px 13px;
+      border: 1px solid var(--ca-border, #dfe5ee);
+      border-radius: 10px;
+      background: var(--ca-surface-muted, #f8fafc);
+      color: var(--ca-muted, #64748b);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .settings-access-note strong { color: var(--ca-text, #172033); }
+    .settings-access-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 24px;
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: var(--ca-primary-soft, #eef4ff);
+      color: var(--ca-primary, #2457d6);
+      font-weight: 800;
+    }
+    .organization-assigned { white-space: nowrap; }
+    @media (max-width: 760px) {
+      .operational-item { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; }
+      .operational-item .value { grid-column: 1 / -1; grid-row: 2; }
+      .operational-item .health-badge { grid-column: 2; grid-row: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function operationalRow(label, value, badgeKind, badgeLabel) {
+  return `<div class="operational-item"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span>${healthBadge(badgeKind, badgeLabel)}</div>`;
+}
+
 function prepareProductCompletionCards() {
+  ensureCompletionUxStyles();
+
   const approval = qs("#settings-section-approval");
+  approval.classList.add("settings-completion-card");
   approval.innerHTML = `
     <div class="card-head"><h2>Approval Policy</h2>${healthBadge("healthy", "Enforced")}</div>
     <p class="card-sub">The execution boundary applied by CorrelAct to consequential work.</p>
-    <div class="field-row"><span class="label">Consequential write actions</span><span class="value">Human approval required</span>${healthBadge("healthy", "Required")}</div>
-    <div class="field-row"><span class="label">Approved action scope</span><span class="value">Locked during execution</span>${healthBadge("healthy", "Enforced")}</div>
-    <div class="field-row"><span class="label">Cross-organization execution</span><span class="value">Rejected by the API</span>${healthBadge("healthy", "Blocked")}</div>
-    <div class="field-row"><span class="label">Repeated execution</span><span class="value">Protected by durable idempotency</span>${healthBadge("healthy", "Protected")}</div>
+    <div class="operational-list">
+      ${operationalRow("Consequential write actions", "Human approval required", "healthy", "Required")}
+      ${operationalRow("Approved action scope", "Locked during execution", "healthy", "Enforced")}
+      ${operationalRow("Cross-organization execution", "Rejected by the API", "healthy", "Blocked")}
+      ${operationalRow("Repeated execution", "Protected by durable idempotency", "healthy", "Protected")}
+    </div>
   `;
 
   const environment = qs("#settings-section-environment");
+  environment.classList.add("settings-completion-card");
   environment.innerHTML = `
     <div class="card-head"><h2>Environment Status</h2></div>
     <p class="env-status-banner" id="env-status-banner"><span class="dot"></span><span id="env-status-banner-text"></span></p>
-    <div class="env-status-rows" id="env-status-rows"></div>
-    <div class="field-row"><span class="label">Environment</span><span class="value" id="env-status-environment"></span></div>
-    <div class="field-row"><span class="label">Platform</span><span class="value">Azure Container Apps</span></div>
+    <div class="operational-list" id="env-status-rows"></div>
+    <div class="operational-list">
+      <div class="operational-item"><span class="label">Environment</span><span class="value" id="env-status-environment"></span>${healthBadge("healthy", "Production")}</div>
+      ${operationalRow("Platform", "Azure Container Apps", "healthy", "Hosted")}
+    </div>
   `;
 
-  qs("#settings-section-integrations").innerHTML = `
+  const integrations = qs("#settings-section-integrations");
+  integrations.classList.add("settings-completion-card");
+  integrations.innerHTML = `
     <div class="card-head"><h2>Connected Capabilities</h2></div>
     <p class="card-sub">Runtime capabilities used by the current CorrelAct workflow.</p>
-    <div id="settings-capabilities-rows"></div>
+    <div class="operational-list" id="settings-capabilities-rows"></div>
   `;
 
-  qs("#settings-section-observability").innerHTML = `
+  const observability = qs("#settings-section-observability");
+  observability.classList.add("settings-completion-card");
+  observability.innerHTML = `
     <div class="card-head"><h2>Observability</h2></div>
     <p class="card-sub">Signals captured from real runs and persisted evaluation history.</p>
-    <div id="settings-observability-rows"></div>
+    <div class="operational-list" id="settings-observability-rows"></div>
   `;
 
-  qs("#settings-section-security").innerHTML = `
+  const security = qs("#settings-section-security");
+  security.classList.add("settings-completion-card");
+  security.innerHTML = `
     <div class="card-head"><h2>Security Controls</h2>${healthBadge("healthy", "Enforced")}</div>
     <p class="card-sub">Controls protecting browser sessions, organization boundaries, and production secrets.</p>
-    <div class="field-row"><span class="label">Authenticated access</span><span class="value">Required for protected APIs</span>${healthBadge("healthy", "Enforced")}</div>
-    <div class="field-row"><span class="label">Browser session</span><span class="value">HttpOnly session cookie</span>${healthBadge("healthy", "Protected")}</div>
-    <div class="field-row"><span class="label">Organization scope</span><span class="value">Checked on protected reads and writes</span>${healthBadge("healthy", "Enforced")}</div>
-    <div class="field-row"><span class="label">Production secrets</span><span class="value">Azure Key Vault references</span>${healthBadge("healthy", "Managed")}</div>
+    <div class="operational-list">
+      ${operationalRow("Authenticated access", "Required for protected APIs", "healthy", "Enforced")}
+      ${operationalRow("Browser session", "HttpOnly session cookie", "healthy", "Protected")}
+      ${operationalRow("Organization scope", "Checked on protected reads and writes", "healthy", "Enforced")}
+      ${operationalRow("Production secrets", "Azure Key Vault references", "healthy", "Managed")}
+    </div>
   `;
 
   const orgCard = qs("#settings-section-tenants");
+  const admin = isPlatformAdmin();
   const heading = orgCard.querySelector("h2");
-  if (heading) heading.textContent = "Organization Management";
+  if (heading) heading.textContent = admin ? "Organization Management" : "Organization Access";
+
   const addButton = qs("#add-tenant-btn");
-  if (addButton) addButton.textContent = "+ Add Organization";
-  const firstHeader = orgCard.querySelector("thead th");
-  if (firstHeader) firstHeader.textContent = "Organization";
+  if (addButton) {
+    addButton.textContent = "+ Add Organization";
+    addButton.classList.toggle("hidden", !admin);
+    addButton.setAttribute("aria-hidden", admin ? "false" : "true");
+  }
+
+  const headers = orgCard.querySelectorAll("thead th");
+  if (headers[0]) headers[0].textContent = "Organization";
+  if (headers[3]) headers[3].textContent = admin ? "Action" : "Access";
+
+  const accessNote = document.createElement("div");
+  accessNote.className = "settings-access-note";
+  accessNote.innerHTML = admin
+    ? `<span class="settings-access-icon">A</span><span><strong>Platform administrator.</strong> You can view, create, activate, and deactivate organizations.</span>`
+    : `<span class="settings-access-icon">O</span><span><strong>Organization-scoped access.</strong> Only organizations assigned to ${escapeHtml(currentUsername() || "this account")} are shown. Organization creation and lifecycle controls are restricted to the platform administrator.</span>`;
+  const tableScroll = orgCard.querySelector(".table-scroll");
+  if (tableScroll) orgCard.insertBefore(accessNote, tableScroll);
 
   const modal = qs("#add-tenant-modal");
   if (modal) {
@@ -91,26 +187,27 @@ function initSettingsTabs() {
 
 function renderTenantsTable(tenants) {
   const body = qs("#tenants-table-body");
+  const admin = isPlatformAdmin();
   if (tenants.length === 0) {
-    body.innerHTML = `<tr><td colspan="4"><p class="empty-note">No organizations available.</p></td></tr>`;
+    body.innerHTML = `<tr><td colspan="4"><p class="empty-note">No organizations available for this account.</p></td></tr>`;
     return;
   }
-  const myTenants = currentTenantIds();
+
   body.innerHTML = tenants.map((t) => {
-    const hasAccess = myTenants.includes(t.slug);
-    const btnAttrs = hasAccess
-      ? `data-toggle-tenant="${escapeHtml(t.slug)}" data-next-active="${!t.is_active}"`
-      : `disabled title="You don't have access to manage this organization."`;
+    const action = admin
+      ? `<button class="btn btn-outline" data-toggle-tenant="${escapeHtml(t.slug)}" data-next-active="${!t.is_active}">${t.is_active ? "Deactivate" : "Activate"}</button>`
+      : `<span class="health-badge healthy organization-assigned"><span class="dot"></span>Assigned</span>`;
     return `
     <tr data-tenant-row="${escapeHtml(t.slug)}">
       <td>${escapeHtml(t.slug)}</td>
       <td>${escapeHtml(t.environment)}</td>
       <td>${t.is_active ? healthBadge("healthy", "Active") : healthBadge("down", "Inactive")}</td>
-      <td><button class="btn btn-outline" ${btnAttrs}>${t.is_active ? "Deactivate" : "Activate"}</button></td>
+      <td>${action}</td>
     </tr>
   `;
   }).join("");
 
+  if (!admin) return;
   qsa("[data-toggle-tenant]", body).forEach((btn) => {
     btn.addEventListener("click", async () => {
       const slug = btn.dataset.toggleTenant;
@@ -158,10 +255,6 @@ async function loadOperationalSignals() {
     guardrailEvent,
     githubVerified: !!(taskEvent || githubExecution),
   };
-}
-
-function operationalRow(label, value, badgeKind, badgeLabel) {
-  return `<div class="field-row"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span>${healthBadge(badgeKind, badgeLabel)}</div>`;
 }
 
 async function loadAndRenderEnvironmentStatus(tenants, signals) {
@@ -327,6 +420,8 @@ function openAddTenantModal() {
 function closeAddTenantModal() { qs("#add-tenant-modal").classList.add("hidden"); }
 
 function initAddTenantModal() {
+  if (!isPlatformAdmin()) return;
+
   qs("#add-tenant-btn").addEventListener("click", openAddTenantModal);
   qs("#add-tenant-cancel-btn").addEventListener("click", closeAddTenantModal);
   qs("#add-tenant-modal").addEventListener("click", (e) => { if (e.target === qs("#add-tenant-modal")) closeAddTenantModal(); });
