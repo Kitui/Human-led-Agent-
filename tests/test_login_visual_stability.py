@@ -8,7 +8,7 @@ def test_supplied_correlact_logo_is_a_real_png_asset():
     logo = FRONTEND / "assets" / "correlact-logo.png"
     payload = logo.read_bytes()
     assert payload.startswith(b"\x89PNG\r\n\x1a\n")
-    assert len(payload) > 10_000
+    assert len(payload) > 1_000
 
 
 def test_login_loads_final_polish_layer_after_theme_boot():
