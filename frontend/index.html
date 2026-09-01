@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Human-Led Agent Lab</title>
+<title>CorrelAct</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" />
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -11,7 +11,7 @@
 <div class="modal-overlay login-overlay" id="login-screen">
   <div class="modal-card login-card">
     <h3 class="modal-title">Sign in</h3>
-    <p class="modal-message">Sign in with your Human-Led Agent Lab account to continue.</p>
+    <p class="modal-message">Sign in with your CorrelAct account to continue.</p>
     <form id="login-form">
       <label class="field-label" for="login-username">Username</label>
       <input type="text" id="login-username" autocomplete="username" required />
@@ -27,10 +27,10 @@
 
 <div class="modal-overlay hidden" id="add-tenant-modal">
   <div class="modal-card">
-    <h3 class="modal-title">Add Tenant</h3>
+    <h3 class="modal-title">Add Organization</h3>
     <form id="add-tenant-form">
-      <label class="field-label" for="add-tenant-slug">Tenant slug</label>
-      <input type="text" id="add-tenant-slug" placeholder="tenant_blue" required />
+      <label class="field-label" for="add-tenant-slug">Organization ID</label>
+      <input type="text" id="add-tenant-slug" placeholder="e.g. Atlas" required />
       <label class="field-label" for="add-tenant-environment">Environment</label>
       <select id="add-tenant-environment">
         <option value="Production">Production</option>
@@ -40,7 +40,7 @@
       <p class="banner hidden" id="add-tenant-error"></p>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" id="add-tenant-cancel-btn">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="add-tenant-submit-btn">Add Tenant</button>
+        <button type="submit" class="btn btn-primary" id="add-tenant-submit-btn">Add Organization</button>
       </div>
     </form>
   </div>
@@ -53,9 +53,9 @@
       <div class="logo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3"/><path d="M8.5 14h7"/></svg>
       </div>
-      <span class="brand">Human-Led Agent Lab</span>
+      <span class="brand">CorrelAct</span>
       <div class="tenant-select" id="tenant-select">
-        <span id="tenant-select-label">tenant_red</span>
+        <span id="tenant-select-label">—</span>
         <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         <div class="tenant-menu" id="tenant-menu"></div>
       </div>
@@ -266,8 +266,8 @@
               <input type="text" id="ap-search" placeholder="Search action points…" />
             </div>
             <div class="filter-group">
-              <span class="filter-label">Tenant</span>
-              <select id="ap-tenant-filter"><option value="all">All Tenants</option></select>
+              <span class="filter-label">Organization</span>
+              <select id="ap-tenant-filter"><option value="all">All Organizations</option></select>
             </div>
             <div class="filter-group">
               <span class="filter-label">Status</span>
@@ -554,6 +554,10 @@
           <button class="settings-tab-btn" data-tab="security" data-target="settings-section-security">Security</button>
         </div>
 
+        <p class="settings-access-note" id="settings-forms-access-note" hidden>
+          <span class="settings-access-icon">O</span><span><strong>Read-only for your account.</strong> Organization settings are managed by the platform administrator. You can view current values below, but saving changes requires administrator access.</span>
+        </p>
+
         <div class="settings-row settings-row-2col">
           <div class="card" id="settings-section-general">
             <div class="card-head"><h2>General Settings</h2></div>
@@ -698,11 +702,11 @@
           <div class="card" id="settings-section-tenants">
             <div class="card-head">
               <h2>Tenant Management</h2>
-              <button class="btn btn-primary" id="add-tenant-btn">+ Add Tenant</button>
+              <button class="btn btn-primary" id="add-tenant-btn">+ Add Organization</button>
             </div>
             <div class="table-scroll">
               <table>
-                <thead><tr><th>Tenant</th><th>Environment</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Organization</th><th>Environment</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody id="tenants-table-body"></tbody>
               </table>
             </div>

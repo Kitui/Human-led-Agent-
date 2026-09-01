@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -231,6 +231,14 @@ async def secured_app_shell() -> FileResponse:
     route only separates the public project preview from the secured product UI.
     """
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/crm.html", include_in_schema=False)
+async def legacy_crm_page_redirect() -> RedirectResponse:
+    """The CRM workspace moved to /crm/ (see frontend/crm/index.html), which
+    carries the shared CorrelAct UI layer that this older page never had.
+    Redirect rather than continue serving the stale duplicate."""
+    return RedirectResponse(url="/crm/", status_code=308)
 
 
 @app.get("/health")
@@ -732,10 +740,16 @@ async def update_tenant_settings_route(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettings:
+    """Only the platform administrator may change organization settings.
+
+    The model, system prompt, and runtime limits configured here affect
+    every user of the organization, including the shared public demo
+    accounts, so ordinary organization members keep read-only access (see
+    read_tenant_settings) rather than write access to their own tenant.
+    """
     if not await tenant_exists(db, slug):
         raise HTTPException(status_code=404, detail="Tenant not found.")
-    if slug not in current_user.tenant_ids and not _is_platform_admin(current_user):
-        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+    _require_platform_admin(current_user)
 
     try:
         return await update_settings(db, slug, **request.model_dump(exclude_unset=True))

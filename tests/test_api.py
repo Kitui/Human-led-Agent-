@@ -14,6 +14,19 @@ async def test_clean_crm_workspace_url(client):
     assert "/js/crm.js" in response.text
 
 
+async def test_legacy_crm_html_redirects_to_the_current_workspace(client):
+    """frontend/crm.html was a stale, unlinked duplicate of frontend/crm/index.html
+    missing the shared CorrelAct UI layer. It has been removed in favor of a
+    server-side redirect so any old link or bookmark still lands somewhere real."""
+    redirect = await client.get("/crm.html", follow_redirects=False)
+    assert redirect.status_code == 308
+    assert redirect.headers["location"] == "/crm/"
+
+    response = await client.get("/crm.html", follow_redirects=True)
+    assert response.status_code == 200
+    assert "CRM Workspace" in response.text
+
+
 async def test_invalid_organization_is_rejected_before_agent_call(client, auth_headers):
     headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
 

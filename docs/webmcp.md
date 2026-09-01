@@ -8,7 +8,7 @@ A read-only CRM workspace that exposes `get_customer` as a WebMCP tool.
 
 ### Where it is implemented
 
-- `frontend/crm.html` — human-facing CRM workspace.
+- `frontend/crm/index.html` — human-facing CRM workspace.
 - `frontend/js/webmcp/crm-tools.js` — WebMCP registration and execution code.
 - `frontend/js/crm.js` — normal human search UI.
 - `agent_lab/api.py` — authenticated CRM read endpoint.

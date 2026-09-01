@@ -38,7 +38,7 @@ function showError(message) {
 }
 
 async function init() {
-  // crm.html may be opened in a different tab from the main application.
+  // This CRM workspace may be opened in a different tab from the main application.
   // Restore that tab from the shared browser cookie before deciding whether
   // the user is signed in.
   await restoreBrowserSession();

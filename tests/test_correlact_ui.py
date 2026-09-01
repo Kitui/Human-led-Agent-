@@ -54,6 +54,26 @@ def test_shared_ui_layer_fixes_responsive_stepper_and_timeline_geometry():
     assert ".sidebar,\n  .sidebar.collapsed {\n    position: fixed;" in css
 
 
+def test_main_app_shell_source_has_no_stale_branding_or_legacy_terminology():
+    """The old brand name, its legacy internal tenant codename, and the
+    internal "Tenant" term were previously left in the static SPA-shell
+    source even though runtime JS immediately overwrote all of them (title,
+    brand span, org table header/button/modal, tenant-select placeholder).
+    Fix the source directly instead of relying on JS to patch it every load:
+    it's what a crawler, "View Source", or a screen reader sees before JS
+    runs, and it's what a public-release code audit sees regardless."""
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    action_points_source = (FRONTEND / "js" / "action-points.js").read_text(encoding="utf-8")
+
+    assert "Human-Led Agent Lab" not in index_source
+    assert "tenant_red" not in index_source
+    assert "<title>CorrelAct</title>" in index_source
+    assert "Add Organization" in index_source
+    assert "<th>Organization</th>" in index_source
+    assert '<span class="filter-label">Organization</span>' in index_source
+    assert "All Organizations" in action_points_source
+
+
 def test_webmcp_workspaces_use_exact_correlact_brand_casing():
     pages = [
         FRONTEND / "support" / "index.html",
