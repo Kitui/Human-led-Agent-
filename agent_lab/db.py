@@ -285,30 +285,25 @@ async def init_db() -> None:
 # Demo identities are intentionally non-secret, but passwords are never
 # embedded in deployable application code. Startup only creates these users
 # when ENABLE_DEMO_USERS=true and all three passwords are supplied via env.
-# The legacy password variable names remain temporary fallbacks so the Azure
-# release can deploy this migration before the Key Vault rotation is applied.
 DEMO_USER_SPECS = [
     (
         "user@northstar.com",
         "DEMO_NORTHSTAR_PASSWORD",
-        "DEMO_RED_PASSWORD",
         ["NorthStar"],
     ),
     (
         "user@neptune.com",
         "DEMO_NEPTUNE_PASSWORD",
-        "DEMO_GREEN_PASSWORD",
         ["Neptune"],
     ),
     (
         "admin@correlact.com",
         "DEMO_ADMIN_PASSWORD",
-        None,
         ["NorthStar", "Neptune"],
     ),
 ]
 DEMO_USERNAMES = tuple(
-    username for username, _env_name, _legacy_env_name, _tenant_ids in DEMO_USER_SPECS
+    username for username, _env_name, _tenant_ids in DEMO_USER_SPECS
 )
 ALL_DEMO_USERNAMES = tuple(dict.fromkeys((*DEMO_USERNAMES, *LEGACY_DEMO_USER_MAP.keys())))
 
@@ -331,19 +326,12 @@ def configured_demo_users() -> list[tuple[str, str, list[str]]]:
         return []
 
     users: list[tuple[str, str, list[str]]] = []
-    for username, password_env, legacy_password_env, tenant_ids in DEMO_USER_SPECS:
+    for username, password_env, tenant_ids in DEMO_USER_SPECS:
         password = os.getenv(password_env, "")
-        if not password and legacy_password_env:
-            password = os.getenv(legacy_password_env, "")
         if len(password) < 16:
-            fallback = (
-                f" (legacy fallback: {legacy_password_env})"
-                if legacy_password_env
-                else ""
-            )
             raise RuntimeError(
-                f"{password_env}{fallback} must be set to at least 16 "
-                "characters when ENABLE_DEMO_USERS=true."
+                f"{password_env} must be set to at least 16 characters "
+                "when ENABLE_DEMO_USERS=true."
             )
         users.append((username, password, tenant_ids))
     return users
