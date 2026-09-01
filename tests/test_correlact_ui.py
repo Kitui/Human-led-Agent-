@@ -11,8 +11,12 @@ def test_main_app_applies_correlact_branding_and_shared_ui_layer():
     login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
 
     assert 'document.title = "CorrelAct"' in main_source
-    assert "brand.innerHTML" in main_source
-    assert "Correl" in main_source and "Act" in main_source
+    # The topbar renders the actual supplied logo asset directly instead of
+    # constructing an invented inline brand mark, so the old text/SVG brand
+    # is fully hidden rather than replaced with different invented markup.
+    assert 'brand.textContent = ""' in main_source
+    assert 'brand.setAttribute("aria-hidden", "true")' in main_source
+    assert 'logo.innerHTML = \'<img src="/assets/correlact-logo.png?v=20260901d"' in main_source
     assert 'link.href = "/correlact-ui.css"' in main_source
     assert 'link.href = "/correlact-theme.css"' in main_source
     assert 'actionsNav.textContent = "Actions"' in main_source

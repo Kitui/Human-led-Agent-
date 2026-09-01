@@ -12,8 +12,14 @@ async function signIn(page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD
   await expect(page.locator("#app-root")).not.toHaveClass(/hidden/);
 }
 
+// submit_action_point now validates CRM evidence against a real customer
+// record for the organization (see agent_lab/api.py), so this synthetic
+// scope-check proposal must bind to the tenant's actual reference customer
+// instead of a made-up "<tenant>-<suffix>" string.
+const REFERENCE_CUSTOMER_BY_TENANT = { NorthStar: "ACME", Neptune: "GreenMart" };
+
 async function createProposal(page, tenantId, suffix) {
-  return page.evaluate(async ({ tenantId, suffix }) => {
+  return page.evaluate(async ({ tenantId, suffix, customerName }) => {
     const response = await fetch("/webmcp/action-points", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -28,12 +34,12 @@ async function createProposal(page, tenantId, suffix) {
         recommended_action: "Verify organization-scoped rendering",
         confidence: 0.99,
         target_team: "Operations",
-        evidence: [{ source: "crm", reference: `${tenantId}-${suffix}`, finding: `Scoped evidence for ${tenantId}` }],
+        evidence: [{ source: "crm", reference: customerName, finding: `Scoped evidence for ${tenantId}` }],
       }),
     });
     if (!response.ok) throw new Error(`proposal failed: ${response.status}`);
     return response.json();
-  }, { tenantId, suffix });
+  }, { tenantId, suffix, customerName: REFERENCE_CUSTOMER_BY_TENANT[tenantId] });
 }
 
 for (const viewport of [
