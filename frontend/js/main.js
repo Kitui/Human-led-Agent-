@@ -45,6 +45,31 @@ if (!document.querySelector('link[data-correlact-theme]')) {
   document.head.appendChild(link);
 }
 
+/* Organization scope is a UI context, but the data boundary must follow it.
+ * Some page modules call GET /runs through different helpers, so apply the
+ * selected organization in one place before any request leaves the SPA.
+ * Protected backend authorization remains authoritative. */
+const nativeFetch = window.fetch.bind(window);
+window.fetch = function correlactScopedFetch(input, init = {}) {
+  const method = String(init.method || "GET").toUpperCase();
+  const selected = document.querySelector("#tenant-select-label")?.textContent?.trim();
+
+  if (method === "GET" && selected && (typeof input === "string" || input instanceof URL)) {
+    try {
+      const url = new URL(String(input), window.location.origin);
+      if (url.origin === window.location.origin && url.pathname === "/runs" && !url.searchParams.has("tenant_id")) {
+        url.searchParams.set("tenant_id", selected);
+        const nextInput = String(input).startsWith("http") ? url.toString() : `${url.pathname}${url.search}`;
+        return nativeFetch(nextInput, init);
+      }
+    } catch (_) {
+      /* Fall through to the original request for non-URL inputs. */
+    }
+  }
+
+  return nativeFetch(input, init);
+};
+
 function applyCorrelActBranding() {
   document.title = "CorrelAct";
 
