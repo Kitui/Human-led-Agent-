@@ -13,20 +13,29 @@
 .topbar .logo svg { display: none !important; }
 .topbar .brand { display: none !important; }
 
+/* The login logo is an intrinsic image. Keep its 16:9 artwork box intact and
+   never let the surrounding flex column compress it into a thin strip. */
 .login-brand {
   display: block !important;
   width: clamp(220px, 21vw, 310px) !important;
+  aspect-ratio: 240 / 135;
   height: auto !important;
+  flex: 0 0 auto !important;
+  min-height: 0;
   margin-bottom: 28px !important;
   background: none !important;
+  overflow: visible !important;
 }
 .login-brand img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-  object-fit: contain;
-  object-position: left center;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  object-position: left center !important;
+  flex: none !important;
+  transform: none !important;
 }
 
 /* Keep native/browser autofill from flashing bright white on the dark login. */
