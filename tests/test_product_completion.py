@@ -1,4 +1,6 @@
 from pathlib import Path
+import shutil
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,3 +36,17 @@ def test_settings_replace_mockup_placeholders_with_real_capability_state():
 def test_quality_gate_is_strict_98_percent():
     source = (ROOT / "agent_lab" / "eval_cases.py").read_text(encoding="utf-8")
     assert "MINIMUM_SCORE = 98.0" in source
+
+
+def test_product_completion_javascript_parses():
+    node = shutil.which("node")
+    if node is None:
+        return
+
+    for filename in ("dashboard.js", "settings.js"):
+        subprocess.run(
+            [node, "--check", str(FRONTEND / filename)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
