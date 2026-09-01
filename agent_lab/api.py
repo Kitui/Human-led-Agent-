@@ -615,6 +615,11 @@ async def approve(
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
 
     try:
+        # In practice this API always takes the webmcp branch: every run that
+        # reaches AWAITING_APPROVAL has requires_human_approval=True, which is
+        # exactly what is_webmcp_action_point checks. approve_run's
+        # single-step approve-and-execute behavior is reachable only through
+        # the standalone CLI (agent_lab/app.py), never through this endpoint.
         if is_webmcp_action_point(run):
             return await approve_webmcp_action_point(
                 db,

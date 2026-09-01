@@ -179,13 +179,14 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
   await signIn(page);
   await expect(page.locator("#tenant-select-label")).toHaveText("NorthStar");
 
-  // NorthStar may already carry runs created by other browser specs that
-  // exercise a real controlled-execution flow against the shared NorthStar/ACME
-  // fixture (e.g. tests/browser/controlled-execution.spec.js). Assert relative
-  // to that baseline instead of an absolute count so this test verifies "the
-  // tenant selector shows exactly this tenant's runs," not "no sibling spec
-  // has ever touched NorthStar."
+  // NorthStar and Neptune may already carry runs created by other browser
+  // specs that exercise a real controlled-execution flow against the shared
+  // fixtures (e.g. tests/browser/controlled-execution.spec.js). Assert
+  // relative to that baseline instead of an absolute count so this test
+  // verifies "the tenant selector shows exactly this tenant's runs," not "no
+  // sibling spec has ever touched NorthStar/Neptune."
   const northStarBaseline = await tenantRunCount(page, "NorthStar");
+  const neptuneBaseline = await tenantRunCount(page, "Neptune");
 
   await createProposal(page, "NorthStar", "one");
   await createProposal(page, "Neptune", "one");
@@ -202,9 +203,11 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
   await page.locator("#tenant-select").click();
   await page.locator('#tenant-menu button[data-tenant="Neptune"]').click();
   await expect(page.locator("#tenant-select-label")).toHaveText("Neptune");
-  await expect(page.locator("#dashboard-runs-table tbody tr")).toHaveCount(2);
-  await expect(page.locator("#dashboard-runs-table tbody tr td:nth-child(2)")).toHaveText(["Neptune", "Neptune"]);
-  await expect(page.locator("#dashboard-stats .stat-card").first().locator(".stat-value")).toHaveText("2");
+  const neptuneExpectedCount = neptuneBaseline + 2;
+  await expect(page.locator("#dashboard-runs-table tbody tr")).toHaveCount(neptuneExpectedCount);
+  const neptuneOrgCells = await page.locator("#dashboard-runs-table tbody tr td:nth-child(2)").allTextContents();
+  expect(neptuneOrgCells.every((text) => text === "Neptune")).toBe(true);
+  await expect(page.locator("#dashboard-stats .stat-card").first().locator(".stat-value")).toHaveText(String(neptuneExpectedCount));
   await expect(page.locator("#dashboard-runs-table")).not.toContainText("NorthStar");
 
   expect(observedRunRequests).toContain("NorthStar");
@@ -212,7 +215,8 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
 
   await page.locator('.nav-item[data-page="runs"]').click();
   await expect(page.locator('section.page[data-page="runs"]')).toHaveClass(/active/);
-  await expect(page.locator("#runs-table-full tbody tr")).toHaveCount(2);
-  await expect(page.locator("#runs-table-full tbody tr td:nth-child(2)")).toHaveText(["Neptune", "Neptune"]);
+  await expect(page.locator("#runs-table-full tbody tr")).toHaveCount(neptuneExpectedCount);
+  const neptuneRunsCells = await page.locator("#runs-table-full tbody tr td:nth-child(2)").allTextContents();
+  expect(neptuneRunsCells.every((text) => text === "Neptune")).toBe(true);
   await expect(page.locator("#runs-table-full")).not.toContainText("NorthStar");
 });

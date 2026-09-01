@@ -74,6 +74,20 @@ def test_main_app_shell_source_has_no_stale_branding_or_legacy_terminology():
     assert "All Organizations" in action_points_source
 
 
+def test_public_facing_pages_use_organization_not_tenant_terminology():
+    """landing.html is the public marketing page and index.html's Runs
+    subtitle is not JS-patched at runtime (unlike the Settings "Coming soon"
+    badges) -- both previously said "tenant" where the product-facing term
+    is "Organization" everywhere else."""
+    landing_source = (FRONTEND / "landing.html").read_text(encoding="utf-8")
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+
+    assert "with organization scope and idempotency enforced" in landing_source
+    assert "tenant scope" not in landing_source
+    assert "workflow executions across organizations" in index_source
+    assert "across tenants" not in index_source
+
+
 def test_webmcp_workspaces_use_exact_correlact_brand_casing():
     pages = [
         FRONTEND / "support" / "index.html",

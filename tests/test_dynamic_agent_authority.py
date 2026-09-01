@@ -99,6 +99,17 @@ def test_investigation_renders_evidence_correlation_chain_from_real_proposal_dat
     assert "98%" not in source
 
 
+def test_investigation_escapes_backend_evidence_before_rendering():
+    """renderEvidence() renders backend-sourced fields (support case subject,
+    the customer's free-text message, account name, ...) into innerHTML. Every
+    other evidence renderer in the app (dashboard, approvals, action-points)
+    escapes dynamic values first; this one previously didn't, which is a real
+    XSS gap for exactly the kind of free-text field a support case carries."""
+    source = (JS / "investigation.js").read_text(encoding="utf-8")
+
+    assert "<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(formatValue(value))}</dd>" in source
+
+
 def test_dynamic_authority_javascript_parses():
     node = shutil.which("node")
     if node is None:

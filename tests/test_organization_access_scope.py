@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import subprocess
+
+from agent_lab.models import EvalSuiteRun
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,6 +69,50 @@ async def test_organization_user_cannot_update_own_organization_settings(client,
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Platform administrator access required."
+
+
+async def test_organization_user_cannot_run_live_evals(client, auth_headers):
+    """POST /evals/run makes 15 real, paid OpenAI calls per invocation, so it
+    must be platform-admin-only -- this endpoint had zero test coverage of
+    that gate before this test existed."""
+    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
+
+    response = await client.post("/evals/run", headers=headers)
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Platform administrator access required."
+
+
+async def test_platform_admin_can_run_live_evals(client, auth_headers, monkeypatch):
+    """Confirms the admin gate actually lets the admin through to
+    run_eval_suite. run_eval_suite itself is mocked so this unit test never
+    makes a real, paid OpenAI call -- the live suite is exercised for real by
+    the separate `python evals/evals.py` CI step."""
+    headers = await auth_headers("admin@correlact.com", "correlact-admin-test-pass")
+
+    calls = []
+
+    async def fake_run_eval_suite(db):
+        calls.append(db)
+        return EvalSuiteRun(
+            run_id="fake-eval-run",
+            started_at=datetime.now(timezone.utc),
+            duration_seconds=0.01,
+            cases=[],
+            passed_count=0,
+            total_count=0,
+            score=0.0,
+            threshold=98.0,
+            result="passed",
+        )
+
+    monkeypatch.setattr("agent_lab.api.run_eval_suite", fake_run_eval_suite)
+
+    response = await client.post("/evals/run", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["run_id"] == "fake-eval-run"
+    assert len(calls) == 1
 
 
 async def test_platform_admin_lists_and_manages_all_organizations(client, auth_headers):
