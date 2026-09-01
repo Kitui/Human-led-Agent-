@@ -1,11 +1,77 @@
-import { getAuthSession } from "./shared.js";
+import { getAuthSession, shortRunId } from "./shared.js";
 import { restoreBrowserSession } from "./auth.js";
 import { fetchCustomer, registerCrmWebMcpTools } from "./webmcp/crm-tools.js";
 import { fetchInvoice, registerBillingWebMcpTools } from "./webmcp/billing-tools.js";
 import { fetchCase, registerSupportWebMcpTools } from "./webmcp/support-tools.js";
-import { registerActionPointWebMcpTool } from "./webmcp/action-point-tools.js";
+import {
+  ACTION_POINT_SUBMITTED_EVENT,
+  registerActionPointWebMcpTool,
+} from "./webmcp/action-point-tools.js";
 
 const $ = (selector) => document.querySelector(selector);
+
+function setStage(stageId, stateId, label, stateClass) {
+  const stage = $(stageId);
+  const state = $(stateId);
+  stage.classList.remove("state-checking", "state-enabled", "state-complete", "state-submitted", "state-locked", "state-unavailable");
+  stage.classList.add(stateClass);
+  state.textContent = label;
+}
+
+function renderAuthorityChecking() {
+  $("#authority-phase").textContent = "Checking authority…";
+  setStage("#authority-read", "#authority-read-state", "CHECKING", "state-checking");
+  setStage("#authority-propose", "#authority-propose-state", "CHECKING", "state-checking");
+  setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
+  $("#authority-boundary").textContent = "Human approval is required before execution authority exists.";
+  $("#authority-run").textContent = "No proposal submitted yet";
+  $("#authority-next").textContent = "Approval unlocks scoped execution in Tasks";
+}
+
+function renderAuthorityReady({ supported, registeredCount }) {
+  if (!supported || registeredCount !== 4) {
+    $("#authority-phase").textContent = supported ? "Tool registration incomplete" : "WebMCP unavailable";
+    setStage("#authority-read", "#authority-read-state", supported ? "INCOMPLETE" : "UNAVAILABLE", "state-unavailable");
+    setStage("#authority-propose", "#authority-propose-state", supported ? "INCOMPLETE" : "UNAVAILABLE", "state-unavailable");
+    setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
+    $("#authority-boundary").textContent = "Execution remains unavailable regardless of browser tool support.";
+    $("#authority-next").textContent = supported ? "Resolve tool registration before testing" : "Use a WebMCP-capable browser";
+    return;
+  }
+
+  $("#authority-phase").textContent = "Investigation authority";
+  setStage("#authority-read", "#authority-read-state", "ENABLED", "state-enabled");
+  setStage("#authority-propose", "#authority-propose-state", "ENABLED", "state-enabled");
+  setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
+  $("#authority-boundary").textContent = "create_task is not exposed in this workspace. No external write authority exists yet.";
+  $("#authority-next").textContent = "Submit a proposal → human approval → scoped Tasks authority";
+}
+
+function renderAuthoritySignedOut() {
+  $("#authority-phase").textContent = "Sign in required";
+  setStage("#authority-read", "#authority-read-state", "SIGN IN", "state-unavailable");
+  setStage("#authority-propose", "#authority-propose-state", "SIGN IN", "state-unavailable");
+  setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
+  $("#authority-boundary").textContent = "No protected CorrelAct capability is available without an authenticated session.";
+  $("#authority-run").textContent = "No authenticated run";
+  $("#authority-next").textContent = "Sign in to establish organization-scoped authority";
+}
+
+function renderAuthorityAfterProposal(detail) {
+  const run = detail?.run;
+  const payload = detail?.payload;
+  if (!run) return;
+
+  $("#authority-phase").textContent = "Awaiting human approval";
+  setStage("#authority-read", "#authority-read-state", "COMPLETE", "state-complete");
+  setStage("#authority-propose", "#authority-propose-state", "SUBMITTED", "state-submitted");
+  setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
+
+  const organization = payload?.tenant_id || run.tenant_id || "organization";
+  $("#authority-boundary").textContent = "Proposal persisted. No external write occurred; create_task remains absent from this page.";
+  $("#authority-run").textContent = `${shortRunId(run.run_id)} · ${organization}`;
+  $("#authority-next").textContent = "A human must approve this exact run before Tasks can expose create_task";
+}
 
 function setWebMcpStatus({ supported, registeredCount }) {
   const el = $("#webmcp-status");
@@ -96,6 +162,11 @@ async function registerInvestigationTools() {
 }
 
 async function init() {
+  renderAuthorityChecking();
+  window.addEventListener(ACTION_POINT_SUBMITTED_EVENT, (event) => {
+    renderAuthorityAfterProposal(event.detail);
+  });
+
   await restoreBrowserSession();
 
   const session = getAuthSession();
@@ -106,6 +177,7 @@ async function init() {
     $("#login-required").classList.remove("hidden");
     form.querySelectorAll("input, select, button").forEach((el) => { el.disabled = true; });
     setWebMcpStatus({ supported: false, registeredCount: 0 });
+    renderAuthoritySignedOut();
     return;
   }
 
@@ -114,9 +186,13 @@ async function init() {
     .join("");
 
   try {
-    setWebMcpStatus(await registerInvestigationTools());
+    const toolState = await registerInvestigationTools();
+    setWebMcpStatus(toolState);
+    renderAuthorityReady(toolState);
   } catch (error) {
-    setWebMcpStatus({ supported: true, registeredCount: 0 });
+    const failedState = { supported: true, registeredCount: 0 };
+    setWebMcpStatus(failedState);
+    renderAuthorityReady(failedState);
     console.error("Investigation WebMCP registration failed", error);
   }
 
