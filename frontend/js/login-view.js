@@ -1,0 +1,106 @@
+/* CorrelAct — visual login shell only.
+ * Authentication remains owned by auth.js and the existing FastAPI endpoints.
+ * This module deliberately preserves the DOM ids auth.js depends on. */
+
+export function renderLoginShell() {
+  const screen = document.querySelector("#login-screen");
+  if (!screen || screen.dataset.correlactLogin === "ready") return;
+
+  screen.dataset.correlactLogin = "ready";
+  screen.classList.add("correlact-login");
+  screen.innerHTML = `
+    <div class="correlact-login-shell">
+      <section class="login-story" aria-label="About CorrelAct">
+        <div class="login-brand" aria-label="CorrelAct">
+          <span class="login-brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <circle cx="23" cy="24" r="17" stroke="#0a2445" stroke-width="5" stroke-dasharray="82 28" stroke-linecap="round"/>
+              <path d="M13 30 23 14l11 20" stroke="#0a2445" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="13" cy="24" r="3" fill="#ef2b32"/>
+              <path d="M31 34 41 17" stroke="#ef2b32" stroke-width="3.8" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span>Correl<span class="brand-act">Act</span></span>
+        </div>
+
+        <div class="login-story-rule"></div>
+        <h1>
+          <span>Investigate.</span>
+          <span>Correlate.</span>
+          <span class="act">Act.</span>
+        </h1>
+        <p class="login-story-copy">CorrelAct helps operations teams investigate issues, correlate evidence, and act with confidence while consequential work remains human-controlled.</p>
+
+        <div class="login-signal-visual" aria-hidden="true">
+          <span class="signal-node" style="left:18%;top:84px;--stem:48px"></span>
+          <span class="signal-node" style="left:38%;top:52px;--stem:64px"></span>
+          <span class="signal-node" style="left:55%;top:92px;--stem:44px"></span>
+          <span class="signal-node" style="left:72%;top:35px;--stem:82px"></span>
+          <span class="signal-node" style="left:87%;top:74px;--stem:58px"></span>
+        </div>
+
+        <div class="login-principles">
+          <article class="login-principle">
+            <span class="login-principle-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/><path d="M7.5 10.5h6"/></svg>
+            </span>
+            <strong>Investigate</strong>
+            <p>Find the operational cause with evidence.</p>
+          </article>
+          <article class="login-principle">
+            <span class="login-principle-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="19" cy="12" r="2"/><path d="m7 11 3.2-2.4M13.8 8.5 17 11"/></svg>
+            </span>
+            <strong>Correlate</strong>
+            <p>Connect signals and surface the truth.</p>
+          </article>
+          <article class="login-principle">
+            <span class="login-principle-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-8 12h7l-1 8 8-12h-7z"/></svg>
+            </span>
+            <strong>Act</strong>
+            <p>Execute only within approved authority.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="login-panel" aria-labelledby="login-title">
+        <h2 id="login-title">Welcome back</h2>
+        <p class="login-panel-subtitle">Sign in to continue to CorrelAct</p>
+        <form id="login-form">
+          <div class="login-field">
+            <label for="login-username">Email address</label>
+            <div class="login-input-wrap">
+              <span class="login-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg></span>
+              <input type="text" id="login-username" autocomplete="username" placeholder="you@organization.com" required />
+            </div>
+          </div>
+          <div class="login-field">
+            <label for="login-password">Password</label>
+            <div class="login-input-wrap">
+              <span class="login-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+              <input type="password" id="login-password" autocomplete="current-password" placeholder="Enter your password" required />
+              <button type="button" class="password-toggle" id="login-password-toggle" aria-label="Show password" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              </button>
+            </div>
+          </div>
+          <p class="banner hidden" id="login-error" role="alert"></p>
+          <button type="submit" class="btn btn-primary" id="login-submit-btn">Sign in</button>
+        </form>
+        <p class="login-security-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3 5 6v5c0 4.5 3 8 7 9 4-1 7-4.5 7-9V6l-7-3Z"/><path d="m9.5 12 2 2 3.5-3.5"/></svg>
+          Organization-scoped access · Human-controlled execution · Auditable
+        </p>
+      </section>
+    </div>`;
+
+  const toggle = document.querySelector("#login-password-toggle");
+  const password = document.querySelector("#login-password");
+  toggle?.addEventListener("click", () => {
+    const show = password.type === "password";
+    password.type = show ? "text" : "password";
+    toggle.setAttribute("aria-pressed", String(show));
+    toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  });
+}
