@@ -41,7 +41,7 @@ export async function registerActionPointWebMcpTool() {
   await document.modelContext.registerTool({
     name: "submit_action_point",
     title: "Submit Proposed Action for human review",
-    description: "Persist a Proposed Action after gathering evidence. This creates an awaiting-approval record only and never executes a consequential action. The proposal may bind one controlled execution capability: create_task, or update_crm_status. For CRM status updates the exact expected and target renewal statuses must be included so the human approves the precise transition before the write tool becomes usable.",
+    description: "Persist a Proposed Action after gathering evidence. This creates an awaiting-approval record only and does not execute any external action or CRM mutation. The proposal may bind one controlled execution capability: create_task, or update_crm_status. For CRM status updates the exact expected and target renewal statuses must be included so the human approves the precise transition before the write tool becomes usable.",
     inputSchema: {
       type: "object",
       properties: {
