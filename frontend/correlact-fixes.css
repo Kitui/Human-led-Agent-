@@ -1,6 +1,6 @@
 /* CorrelAct polish layer: supplied logo, stable first paint, and viewport-safe login geometry. */
 
-/* Use the verified user-supplied CorrelAct artwork everywhere the product mark is visible. */
+/* Use the stable CorrelAct artwork everywhere the product mark is visible. */
 .topbar .logo {
   width: 112px !important;
   height: 58px !important;
@@ -8,20 +8,23 @@
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  background: transparent url('/assets/correlact-logo-user.png?v=20260901b') center / contain no-repeat !important;
+  background: transparent url('/assets/correlact-logo.png?v=20260901c') center / contain no-repeat !important;
 }
 .topbar .logo svg { display: none !important; }
 .topbar .brand { display: none !important; }
 
-/* The login logo is an intrinsic image. Keep its 16:9 artwork box intact and
-   never let the surrounding flex column compress it into a thin strip. */
+/* Never size the login artwork through the flex parent's height. The image owns
+   its intrinsic 240x135 ratio, so a later flex/layout rule cannot squash it into
+   the thin strip seen in production. */
 .login-brand {
   display: block !important;
   width: clamp(220px, 21vw, 310px) !important;
-  aspect-ratio: 240 / 135;
   height: auto !important;
+  aspect-ratio: auto !important;
   flex: 0 0 auto !important;
+  min-width: 0;
   min-height: 0;
+  line-height: 0 !important;
   margin-bottom: 28px !important;
   background: none !important;
   overflow: visible !important;
@@ -29,13 +32,15 @@
 .login-brand img {
   display: block !important;
   width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
+  height: auto !important;
+  aspect-ratio: auto !important;
+  max-width: 100% !important;
   max-height: none !important;
   object-fit: contain !important;
   object-position: left center !important;
   flex: none !important;
   transform: none !important;
+  clip-path: none !important;
 }
 
 /* styles.css has a higher-specificity #login-form input rule with 12px left
