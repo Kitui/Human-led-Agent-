@@ -1,4 +1,4 @@
-# Human-Led Agent Lab dependency lock
+# CorrelAct dependency lock
 # Resolved from the green Python 3.12 CI environment used on 2026-08-29.
 # Exact versions are intentional. Regenerate deliberately when dependencies change.
 # uvloop is skipped on Windows because it is not supported there.
