@@ -1,37 +1,46 @@
+import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
+EXPECTED_LOGO_SHA256 = "c376f21d389802a42fc7454184021f7c1ffcd8fc9186b2c092be99bec19abfd2"
 
 
-def test_supplied_correlact_logo_is_a_real_png_asset():
-    logo = FRONTEND / "assets" / "correlact-logo.png"
+def test_supplied_correlact_logo_is_the_verified_png_asset():
+    logo = FRONTEND / "assets" / "correlact-logo-user.png"
     payload = logo.read_bytes()
     assert payload.startswith(b"\x89PNG\r\n\x1a\n")
     assert len(payload) > 1_000
+    assert hashlib.sha256(payload).hexdigest() == EXPECTED_LOGO_SHA256
 
 
 def test_login_renders_supplied_image_instead_of_an_invented_brand_mark():
     login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
-    assert '<img src="/assets/correlact-logo.png"' in login_source
+    assert '<img src="/assets/correlact-logo-user.png?v=20260901b"' in login_source
+    assert 'width="240" height="135"' in login_source
     assert "login-brand-mark" not in login_source
     assert "Correl<span" not in login_source
 
 
-def test_login_hides_first_paint_until_visual_layers_are_ready():
+def test_login_hides_first_paint_until_visual_layers_and_logo_are_ready():
     login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
     assert "correlact-login-booting" in login_source
     assert "stylesheetReady" in login_source
+    assert "imageReady" in login_source
     assert "revealStableLogin" in login_source
-    assert 'link.href = "/correlact-fixes.css"' in login_source
+    assert 'link.href = "/correlact-fixes.css?v=20260901b"' in login_source
 
 
-def test_polish_layer_prevents_recorded_flicker_and_overlap():
+def test_polish_layer_prevents_recorded_flicker_overlap_and_icon_collision():
     css = (FRONTEND / "correlact-fixes.css").read_text(encoding="utf-8")
-    assert "url('/assets/correlact-logo.png')" in css
+    assert "url('/assets/correlact-logo-user.png?v=20260901b')" in css
     assert ".login-brand img" in css
     assert ".topbar .logo svg { display: none !important; }" in css
     assert ".topbar .brand { display: none !important; }" in css
+    assert 'input[type="text"]' in css
+    assert 'input[type="password"]' in css
+    assert "padding: 0 52px 0 52px !important" in css
+    assert "margin: 0 !important" in css
     assert "input:-webkit-autofill" in css
     assert "-webkit-text-fill-color: #f5f7fb" in css
     assert "0 0 0 1000px #091727 inset" in css
