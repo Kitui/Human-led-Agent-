@@ -100,11 +100,14 @@ export function renderLoginShell() {
         <p class="login-story-copy">CorrelAct helps operations teams investigate issues, correlate evidence, and act with confidence while consequential work remains human-controlled.</p>
 
         <div class="login-signal-visual" aria-hidden="true">
-          <span class="signal-node" style="left:18%;top:84px;--stem:48px"></span>
-          <span class="signal-node" style="left:38%;top:52px;--stem:64px"></span>
-          <span class="signal-node" style="left:55%;top:92px;--stem:44px"></span>
-          <span class="signal-node" style="left:72%;top:35px;--stem:82px"></span>
-          <span class="signal-node" style="left:87%;top:74px;--stem:58px"></span>
+          <svg class="signal-graphic" viewBox="0 0 600 150" preserveAspectRatio="none">
+            <path class="signal-line" d="M40,95 C110,60 140,40 200,55 C260,70 300,115 360,100 C420,85 480,55 560,65" />
+            <path class="signal-link" d="M200,55 Q280,15 360,100" />
+            <circle class="signal-dot" cx="40" cy="95" r="4.5" />
+            <circle class="signal-dot signal-dot-active" cx="200" cy="55" r="5.5" />
+            <circle class="signal-dot signal-dot-active" cx="360" cy="100" r="5.5" />
+            <circle class="signal-dot" cx="560" cy="65" r="4.5" />
+          </svg>
         </div>
 
         <div class="login-principles">
