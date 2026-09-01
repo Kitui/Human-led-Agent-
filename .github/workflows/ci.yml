@@ -64,6 +64,63 @@ jobs:
       - name: Run unit tests
         run: pytest
 
+      # PRs now render the real production container in Chromium before merge.
+      # This catches CSS/card/sidebar regressions that source-level assertions
+      # cannot detect. The Azure workflow still deploys only successful main CI.
+      - name: Start production container for browser checks
+        shell: bash
+        run: |
+          docker run --detach \
+            --name correlact-ui-ci \
+            --network host \
+            --env DATABASE_URL="$DATABASE_URL" \
+            --env JWT_SECRET_KEY="$JWT_SECRET_KEY" \
+            --env ENABLE_DEMO_USERS=true \
+            --env DEMO_NORTHSTAR_PASSWORD=northstar-browser-test-pass \
+            --env DEMO_NEPTUNE_PASSWORD=neptune-browser-test-pass \
+            --env DEMO_ADMIN_PASSWORD=admin-browser-test-pass \
+            human-led-agent:ci
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health >/dev/null; then
+              echo "Browser-test app is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Browser-test app failed to become healthy."
+          docker logs correlact-ui-ci || true
+          exit 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Chromium browser test runner
+        run: |
+          npm install --no-save --no-package-lock @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run rendered browser layout checks
+        env:
+          CORRELACT_BASE_URL: http://127.0.0.1:8000
+        run: npx playwright test tests/browser/settings-layout.spec.js --reporter=line
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-layout-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop browser-test container
+        if: always()
+        run: docker rm --force correlact-ui-ci || true
+
       - name: Run AI evaluation suite
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
