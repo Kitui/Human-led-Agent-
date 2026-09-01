@@ -185,6 +185,24 @@
         </article>
       </div>
     </section>
+
+    <section class="correlation-section hidden" id="correlation-section" aria-live="polite">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Evidence correlation</p>
+          <h3>How the agent connected the evidence</h3>
+        </div>
+        <span class="evidence-badge">Evidence-backed proposal · submit_action_point</span>
+      </div>
+
+      <ol class="correlation-chain" id="correlation-chain"></ol>
+
+      <div class="correlation-summary">
+        <div><span>Evidence confidence</span><strong id="correlation-confidence">—</strong></div>
+        <div><span>Sources correlated</span><strong id="correlation-sources">—</strong></div>
+        <div><span>Target team</span><strong id="correlation-team">—</strong></div>
+      </div>
+    </section>
   </main>
 
   <script type="module" src="/js/investigation.js"></script>

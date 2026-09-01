@@ -1,4 +1,4 @@
-import { getAuthSession, shortRunId } from "./shared.js";
+import { escapeHtml, getAuthSession, shortRunId } from "./shared.js";
 import { restoreBrowserSession } from "./auth.js";
 import { fetchCustomer, registerCrmWebMcpTools } from "./webmcp/crm-tools.js";
 import { fetchInvoice, registerBillingWebMcpTools } from "./webmcp/billing-tools.js";
@@ -71,6 +71,43 @@ function renderAuthorityAfterProposal(detail) {
   $("#authority-boundary").textContent = "Proposal persisted. No external write occurred; create_task remains absent from this page.";
   $("#authority-run").textContent = `${shortRunId(run.run_id)} · ${organization}`;
   $("#authority-next").textContent = "A human must approve this exact run before Tasks can expose create_task";
+}
+
+const CORRELATION_SOURCE_LABEL = { support: "Support", crm: "CRM", billing: "Billing" };
+const CORRELATION_SOURCE_TOOL = { support: "get_case", crm: "get_customer", billing: "get_invoice" };
+
+function renderEvidenceCorrelation(detail) {
+  const payload = detail?.payload;
+  if (!payload) return;
+
+  const evidence = Array.isArray(payload.evidence) ? payload.evidence : [];
+  const evidenceNodes = evidence.map((item) => `
+    <li class="correlation-node">
+      <span class="correlation-source">${escapeHtml(CORRELATION_SOURCE_LABEL[item.source] || item.source || "Evidence")}<code>${escapeHtml(CORRELATION_SOURCE_TOOL[item.source] || "")}</code></span>
+      <p>${escapeHtml(item.finding || "")}</p>
+      <span class="correlation-ref">${escapeHtml(item.reference || "")}</span>
+    </li>
+  `).join("");
+
+  $("#correlation-chain").innerHTML = `
+    ${evidenceNodes}
+    <li class="correlation-node cause-node">
+      <span class="correlation-source">Correlated cause</span>
+      <p>${escapeHtml(payload.summary || "—")}</p>
+    </li>
+    <li class="correlation-node action-node">
+      <span class="correlation-source">Proposed action</span>
+      <p>${escapeHtml(payload.recommended_action || "—")}</p>
+    </li>
+  `;
+
+  $("#correlation-confidence").textContent = typeof payload.confidence === "number"
+    ? `${Math.round(payload.confidence * 100)}%`
+    : "—";
+  $("#correlation-sources").textContent = String(evidence.length);
+  $("#correlation-team").textContent = payload.target_team || "—";
+
+  $("#correlation-section").classList.remove("hidden");
 }
 
 function setWebMcpStatus({ supported, registeredCount }) {
@@ -165,6 +202,7 @@ async function init() {
   renderAuthorityChecking();
   window.addEventListener(ACTION_POINT_SUBMITTED_EVENT, (event) => {
     renderAuthorityAfterProposal(event.detail);
+    renderEvidenceCorrelation(event.detail);
   });
 
   await restoreBrowserSession();
