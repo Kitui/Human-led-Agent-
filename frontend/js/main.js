@@ -25,6 +25,16 @@ if (!document.querySelector('link[data-correlact-ui]')) {
   document.head.appendChild(link);
 }
 
+/* Layout fixes live in a final cascade layer so responsive shell/card geometry
+ * can be tested and adjusted without destabilizing the shared visual tokens. */
+if (!document.querySelector('link[data-correlact-layout]')) {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "/correlact-layout.css";
+  link.dataset.correlactLayout = "true";
+  document.head.appendChild(link);
+}
+
 function applyCorrelActBranding() {
   document.title = "CorrelAct";
 
