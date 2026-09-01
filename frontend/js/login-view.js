@@ -17,7 +17,7 @@ function ensureLoginPolishStyles() {
   if (link) return link;
   link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "/correlact-fixes.css";
+  link.href = "/correlact-fixes.css?v=20260901b";
   link.dataset.correlactFixes = "true";
   document.head.appendChild(link);
   return link;
@@ -32,6 +32,23 @@ function stylesheetReady(link) {
   });
 }
 
+function imageReady(image) {
+  if (!image) return Promise.resolve();
+  if (image.complete && image.naturalWidth > 0) {
+    return typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const done = async () => {
+      if (image.naturalWidth > 0 && typeof image.decode === "function") {
+        try { await image.decode(); } catch (_) { /* load event is sufficient */ }
+      }
+      resolve();
+    };
+    image.addEventListener("load", done, { once: true });
+    image.addEventListener("error", done, { once: true });
+  });
+}
+
 function revealStableLogin(screen, polishLink) {
   const styleLinks = [
     document.querySelector('link[data-correlact-ui]'),
@@ -39,8 +56,12 @@ function revealStableLogin(screen, polishLink) {
     document.querySelector('link[data-correlact-theme]'),
     polishLink,
   ].filter(Boolean);
+  const logoImage = screen.querySelector(".login-brand img");
 
+  let revealed = false;
   const reveal = () => {
+    if (revealed) return;
+    revealed = true;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         document.documentElement.classList.remove("correlact-login-booting");
@@ -49,8 +70,11 @@ function revealStableLogin(screen, polishLink) {
     });
   };
 
-  Promise.all(styleLinks.map(stylesheetReady)).then(reveal);
-  window.setTimeout(reveal, 1600);
+  Promise.all([
+    ...styleLinks.map(stylesheetReady),
+    imageReady(logoImage),
+  ]).then(reveal);
+  window.setTimeout(reveal, 2500);
 }
 
 export function renderLoginShell() {
@@ -64,7 +88,7 @@ export function renderLoginShell() {
     <div class="correlact-login-shell">
       <section class="login-story" aria-label="About CorrelAct">
         <div class="login-brand">
-          <img src="/assets/correlact-logo.png" alt="CorrelAct — Investigate, Correlate, Act" />
+          <img src="/assets/correlact-logo-user.png?v=20260901b" alt="CorrelAct — Investigate, Correlate, Act" width="240" height="135" />
         </div>
 
         <div class="login-story-rule"></div>
