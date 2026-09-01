@@ -25,7 +25,7 @@ function renderAuthorityChecking() {
   setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
   $("#authority-boundary").textContent = "Human approval is required before execution authority exists.";
   $("#authority-run").textContent = "No proposal submitted yet";
-  $("#authority-next").textContent = "Approval unlocks scoped execution in Tasks";
+  $("#authority-next").textContent = "Approval unlocks only the capability bound to the proposal";
 }
 
 function renderAuthorityReady({ supported, registeredCount }) {
@@ -43,8 +43,8 @@ function renderAuthorityReady({ supported, registeredCount }) {
   setStage("#authority-read", "#authority-read-state", "ENABLED", "state-enabled");
   setStage("#authority-propose", "#authority-propose-state", "ENABLED", "state-enabled");
   setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
-  $("#authority-boundary").textContent = "create_task is not exposed in this workspace. No external write authority exists yet.";
-  $("#authority-next").textContent = "Submit a proposal → human approval → scoped Tasks authority";
+  $("#authority-boundary").textContent = "No controlled write tool is exposed in this workspace. The agent can read and propose only.";
+  $("#authority-next").textContent = "Submit a proposal → human approval → proposal-specific execution authority";
 }
 
 function renderAuthoritySignedOut() {
@@ -55,6 +55,10 @@ function renderAuthoritySignedOut() {
   $("#authority-boundary").textContent = "No protected CorrelAct capability is available without an authenticated session.";
   $("#authority-run").textContent = "No authenticated run";
   $("#authority-next").textContent = "Sign in to establish organization-scoped authority";
+}
+
+function proposalExecution(payload, run) {
+  return payload?.execution?.type || run?.action_point?.execution?.type || "create_task";
 }
 
 function renderAuthorityAfterProposal(detail) {
@@ -68,9 +72,10 @@ function renderAuthorityAfterProposal(detail) {
   setStage("#authority-execute", "#authority-execute-state", "LOCKED", "state-locked");
 
   const organization = payload?.tenant_id || run.tenant_id || "organization";
-  $("#authority-boundary").textContent = "Proposal persisted. No external write occurred; create_task remains absent from this page.";
-  $("#authority-run").textContent = `${shortRunId(run.run_id)} · ${organization}`;
-  $("#authority-next").textContent = "A human must approve this exact run before Tasks can expose create_task";
+  const capability = proposalExecution(payload, run);
+  $("#authority-boundary").textContent = `Proposal persisted. No write occurred; ${capability} remains unavailable until a human approves this exact run.`;
+  $("#authority-run").textContent = `${shortRunId(run.run_id)} · ${organization} · ${capability}`;
+  $("#authority-next").textContent = `Approval can expose ${capability} only for this approved customer and action scope`;
 }
 
 const CORRELATION_SOURCE_LABEL = { support: "Support", crm: "CRM", billing: "Billing" };
@@ -89,6 +94,11 @@ function renderEvidenceCorrelation(detail) {
     </li>
   `).join("");
 
+  const execution = payload.execution?.type || "create_task";
+  const executionDetail = execution === "update_crm_status"
+    ? ` · renewal_status ${payload.execution?.crm_expected_status || "—"} → ${payload.execution?.crm_target_status || "—"}`
+    : "";
+
   $("#correlation-chain").innerHTML = `
     ${evidenceNodes}
     <li class="correlation-node cause-node">
@@ -96,8 +106,8 @@ function renderEvidenceCorrelation(detail) {
       <p>${escapeHtml(payload.summary || "—")}</p>
     </li>
     <li class="correlation-node action-node">
-      <span class="correlation-source">Proposed action</span>
-      <p>${escapeHtml(payload.recommended_action || "—")}</p>
+      <span class="correlation-source">Proposed action · ${escapeHtml(execution)}</span>
+      <p>${escapeHtml(payload.recommended_action || "—")}${escapeHtml(executionDetail)}</p>
     </li>
   `;
 
