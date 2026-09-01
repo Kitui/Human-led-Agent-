@@ -314,6 +314,21 @@ textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--prima
 .pill-tag.pass { background: var(--success-bg); color: var(--success); }
 .pill-tag.mcp { background: var(--primary-bg); color: var(--primary); }
 
+/* Activity role badges: classify each real trace event into who acted --
+   agent read, agent proposal, human decision, agent write, or outcome --
+   using the event's own kind/tag/label. Never a new category invented
+   beyond what agent_lab actually records. */
+.role-badge {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+}
+.role-badge.role-read { background: var(--primary-bg); color: var(--primary); }
+.role-badge.role-propose { background: #EEF2FF; color: #4338CA; }
+.role-badge.role-human { background: var(--warning-bg); color: var(--warning); }
+.role-badge.role-write { background: #FCE7F3; color: #BE185D; }
+.role-badge.role-outcome { background: var(--success-bg); color: var(--success); }
+.role-badge.role-safety { background: var(--neutral-bg); color: var(--neutral-text); }
+
 .empty-note { color: var(--text-faint); font-size: 13px; margin: 4px 0; }
 
 /* ---------- Tables ---------- */

@@ -56,6 +56,42 @@ def test_tasks_only_expose_create_task_when_executable_approved_work_exists():
     assert "create_task is removed from this page's WebMCP context" in source
 
 
+def test_execution_visibly_completes_authority_before_queue_refresh():
+    css = (FRONTEND / "tasks.css").read_text(encoding="utf-8")
+    source = (JS / "tasks.js").read_text(encoding="utf-8")
+
+    assert ".authority-stage.state-complete::before" in css
+    assert "function renderExecutionCompleted(result)" in source
+    assert '"COMPLETED"' in source
+    assert '"state-complete"' in source
+    assert "Authority consumed for this run" in source
+    assert "renderExecutionCompleted(result);" in source
+    assert "renderExecutionCompleted(event.detail);" in source
+    assert "window.setTimeout(() => { loadApprovedRuns().catch(console.error); }, 2500);" in source
+
+
+def test_investigation_renders_evidence_correlation_chain_from_real_proposal_data():
+    html = (FRONTEND / "investigation" / "index.html").read_text(encoding="utf-8")
+    css = (FRONTEND / "investigation.css").read_text(encoding="utf-8")
+    source = (JS / "investigation.js").read_text(encoding="utf-8")
+
+    assert 'id="correlation-section"' in html
+    assert 'id="correlation-chain"' in html
+    assert 'id="correlation-confidence"' in html
+    assert 'id="correlation-sources"' in html
+    assert ".correlation-node.cause-node" in css
+    assert ".correlation-node.action-node" in css
+    assert "function renderEvidenceCorrelation(detail)" in source
+    assert "const evidence = Array.isArray(payload.evidence) ? payload.evidence : [];" in source
+    assert "Math.round(payload.confidence * 100)" in source
+    assert '$("#correlation-sources").textContent = String(evidence.length);' in source
+    assert "renderEvidenceCorrelation(event.detail);" in source
+    # Confidence and evidence-count must come from the agent's real submitted payload,
+    # never a hardcoded or invented display value.
+    assert "confidence: 0." not in source
+    assert "98%" not in source
+
+
 def test_dynamic_authority_javascript_parses():
     node = shutil.which("node")
     if node is None:

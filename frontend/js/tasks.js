@@ -30,10 +30,23 @@ function setWebMcpStatus({ supported, registered, locked = false }) {
 
 function setExecuteStage(label, stateClass, copy) {
   const stage = $("#authority-execute");
-  stage.classList.remove("state-checking", "state-enabled", "state-locked", "state-unavailable");
+  stage.classList.remove("state-checking", "state-enabled", "state-locked", "state-unavailable", "state-complete");
   stage.classList.add(stateClass);
   $("#authority-execute-state").textContent = label;
   $("#authority-execute-copy").textContent = copy;
+}
+
+function renderExecutionCompleted(result) {
+  const tenantId = $("#tenant-select").value || "organization";
+  $("#authority-phase").textContent = "Execution completed";
+  setExecuteStage(
+    "COMPLETED",
+    "state-complete",
+    result?.execution_result || "create_task executed. External task created.",
+  );
+  $("#authority-approval").textContent = "Authority consumed for this run";
+  $("#authority-scope").textContent = `${tenantId} · ${shortRunId(result?.run_id || "")}`;
+  $("#authority-exposure").textContent = "create_task authority for this run is consumed. It cannot execute again for the same run.";
 }
 
 function renderTaskAuthority(runs, toolState) {
@@ -167,7 +180,8 @@ function renderRuns(runs) {
       try {
         const result = await executeApprovedTask(runId, tenantId, customerName);
         showExecutionSuccess(result);
-        await loadApprovedRuns();
+        renderExecutionCompleted(result);
+        window.setTimeout(() => { loadApprovedRuns().catch(console.error); }, 2500);
       } catch (error) {
         $("#execution-result").classList.remove("hidden");
         $("#execution-result").classList.add("error");
@@ -237,9 +251,10 @@ async function init() {
     .map((tenantId) => `<option value="${escapeHtml(tenantId)}">${escapeHtml(tenantId)}</option>`)
     .join("");
 
-  window.addEventListener(TASK_EXECUTED_EVENT, async (event) => {
+  window.addEventListener(TASK_EXECUTED_EVENT, (event) => {
     showExecutionSuccess(event.detail);
-    await loadApprovedRuns();
+    renderExecutionCompleted(event.detail);
+    window.setTimeout(() => { loadApprovedRuns().catch(console.error); }, 2500);
   });
 
   $("#tenant-select").addEventListener("change", loadApprovedRuns);

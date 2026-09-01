@@ -87,6 +87,29 @@ function filteredTraces() {
   }).slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
+// Classifies a real trace event into who acted on the run -- agent read,
+// agent proposal, human decision, agent write, or outcome -- using only the
+// event's own kind/tag/label already recorded by agent_lab. Returns null for
+// anything that doesn't match a known real shape rather than guessing.
+function activityRole({ kind, tag, rawLabel }) {
+  if (kind === "guardrail") return { label: "SAFETY CHECK", cls: "role-safety" };
+  if (tag === "MCP" || tag === "TOOL" || tag === "EVIDENCE") return { label: "AGENT READ", cls: "role-read" };
+  if (tag === "HUMAN_REVIEW") return { label: "AGENT PROPOSAL", cls: "role-propose" };
+  if (tag === "HUMAN_APPROVAL") return { label: "HUMAN DECISION", cls: "role-human" };
+  if (rawLabel === "Rejected by human reviewer" || rawLabel === "Reviewer comment added") {
+    return { label: "HUMAN DECISION", cls: "role-human" };
+  }
+  if (tag === "WEBMCP_WRITE") return { label: "AGENT WRITE", cls: "role-write" };
+  if (tag === "EXECUTION_RESULT" || rawLabel === "Execution completed" || kind === "error") {
+    return { label: "OUTCOME", cls: "role-outcome" };
+  }
+  return null;
+}
+
+function roleBadgeHtml(role) {
+  return role ? `<span class="role-badge ${role.cls}">${escapeHtml(role.label)}</span>` : "";
+}
+
 function fmtStepDuration(ms) {
   // Sub-millisecond gaps just reflect how fast this process looped over
   // already-finished events, not a real measured duration — show "--"
@@ -122,10 +145,28 @@ function buildExecutionSteps(run) {
         state: "done",
         tag: e.tag,
         detail: resultEvent ? resultEvent.detail : null,
+        kind: e.kind,
+        rawLabel: e.label,
       });
       continue;
     }
-    if (e.kind === "mcp") continue; // an unmatched "result received" (shouldn't normally happen)
+    if (e.kind === "mcp") {
+      if (/result received$/.test(e.label)) continue; // an unmatched result (shouldn't normally happen)
+      // A standalone mcp-kind event with no "called"/"result received" pair,
+      // e.g. a WebMCP evidence citation attached at proposal time -- still a
+      // real event, so it gets its own step rather than being dropped.
+      steps.push({
+        title: e.label,
+        desc: e.detail ? e.detail.replace(/\s+/g, " ").slice(0, 140) : "",
+        durationMs: null,
+        state: "done",
+        tag: e.tag,
+        detail: e.detail,
+        kind: e.kind,
+        rawLabel: e.label,
+      });
+      continue;
+    }
 
     steps.push({
       title: e.label,
@@ -134,6 +175,8 @@ function buildExecutionSteps(run) {
       state: e.kind === "error" ? "error" : "done",
       tag: e.tag,
       detail: e.detail,
+      kind: e.kind,
+      rawLabel: e.label,
     });
   }
 
@@ -161,12 +204,13 @@ function renderExecutionTimeline(run) {
     <div class="exec-timeline">
       ${steps.map((s, i) => {
         const icon = execStepIconSvg(s.state);
+        const role = activityRole(s);
         return `
         <div class="exec-step ${s.state}">
           <div class="exec-step-num">${icon ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>` : i + 1}</div>
           <div class="exec-step-body ${s.detail ? "" : "no-detail"}" data-step-idx="${i}">
             <div class="exec-step-row">
-              <span class="exec-step-title">${escapeHtml(s.title)} ${s.tag ? `<span class="pill-tag ${s.tag === "PASS" ? "pass" : "mcp"}">${escapeHtml(s.tag)}</span>` : ""}</span>
+              <span class="exec-step-title">${escapeHtml(s.title)} ${roleBadgeHtml(role)} ${s.tag ? `<span class="pill-tag ${s.tag === "PASS" ? "pass" : "mcp"}">${escapeHtml(s.tag)}</span>` : ""}</span>
               <span class="exec-step-meta">
                 <span class="exec-step-duration">${fmtStepDuration(s.durationMs)}</span>
                 ${s.detail ? `<span class="exec-step-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>` : ""}
@@ -275,12 +319,13 @@ function renderTraceDetail(run) {
       <div class="trace-tab-panel active" data-tab-panel="details">
         ${(run.trace || []).length ? `
           <div class="table-scroll">
-            <table class="trace-details-table" style="min-width:640px;">
-              <thead><tr><th>Time</th><th>Kind</th><th>Label</th><th>Tag</th><th>Detail</th></tr></thead>
+            <table class="trace-details-table" style="min-width:720px;">
+              <thead><tr><th>Time</th><th>Role</th><th>Kind</th><th>Label</th><th>Tag</th><th>Detail</th></tr></thead>
               <tbody>
                 ${run.trace.map((e) => `
                   <tr>
                     <td style="white-space:nowrap;">${fmtTime(e.timestamp)}</td>
+                    <td style="white-space:nowrap;">${roleBadgeHtml(activityRole({ kind: e.kind, tag: e.tag, rawLabel: e.label }))}</td>
                     <td style="white-space:nowrap;">${escapeHtml(e.kind)}</td>
                     <td style="white-space:nowrap;">${escapeHtml(e.label)}</td>
                     <td style="white-space:nowrap;">${e.tag ? `<span class="pill-tag ${e.tag === "PASS" ? "pass" : "mcp"}">${escapeHtml(e.tag)}</span>` : ""}</td>
