@@ -28,6 +28,7 @@ from .db_models import WorkflowRunORM, workflow_run_to_columns
 from .evals_runner import list_eval_runs, run_eval_suite
 from .models import (
     ActionPoint,
+    ApprovedExecution,
     AuthenticatedUser,
     EvalSuiteRun,
     LoginResponse,
@@ -133,6 +134,12 @@ class WebMcpEvidenceRequest(BaseModel):
     finding: str = Field(min_length=1, max_length=700)
 
 
+class WebMcpApprovedExecutionRequest(BaseModel):
+    type: Literal["create_task", "update_crm_status"]
+    crm_expected_status: Literal["blocked", "normal"] | None = None
+    crm_target_status: Literal["escalation_open", "follow_up_required"] | None = None
+
+
 class WebMcpActionPointRequest(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=60)
     issue: str = Field(min_length=1, max_length=2000)
@@ -143,6 +150,7 @@ class WebMcpActionPointRequest(BaseModel):
     recommended_action: str = Field(min_length=1, max_length=2000)
     confidence: float = Field(ge=0.0, le=1.0)
     target_team: str = Field(min_length=1, max_length=120)
+    execution: WebMcpApprovedExecutionRequest | None = None
     evidence: list[WebMcpEvidenceRequest] = Field(min_length=1, max_length=8)
 
 
@@ -317,6 +325,29 @@ async def submit_webmcp_action_point(
     if tenant_id not in current_user.tenant_ids:
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
 
+    requested_execution = request.execution or WebMcpApprovedExecutionRequest(type="create_task")
+    if requested_execution.type == "update_crm_status":
+        if not requested_execution.crm_expected_status or not requested_execution.crm_target_status:
+            raise HTTPException(
+                status_code=422,
+                detail="CRM status execution requires the exact expected and target renewal statuses before approval.",
+            )
+        allowed_transition = (
+            requested_execution.crm_expected_status,
+            requested_execution.crm_target_status,
+        ) in {
+            ("blocked", "escalation_open"),
+            ("normal", "follow_up_required"),
+        }
+        if not allowed_transition:
+            raise HTTPException(status_code=422, detail="CRM status transition is not allowed.")
+    elif requested_execution.crm_expected_status or requested_execution.crm_target_status:
+        raise HTTPException(
+            status_code=422,
+            detail="CRM status fields may only be supplied for update_crm_status.",
+        )
+
+    approved_execution = ApprovedExecution(**requested_execution.model_dump())
     settings = await get_or_create_settings(db, tenant_id)
     now = datetime.now(timezone.utc)
     action_point = ActionPoint(
@@ -328,6 +359,7 @@ async def submit_webmcp_action_point(
         confidence=request.confidence,
         requires_human_approval=True,
         target_team=request.target_team.strip(),
+        execution=approved_execution,
     )
 
     trace = [
@@ -335,7 +367,10 @@ async def submit_webmcp_action_point(
             timestamp=now,
             kind="execution",
             label="WebMCP Action Point submitted",
-            detail="Browser agent proposal persisted for human review. No external action was executed.",
+            detail=(
+                f"Browser agent proposal persisted for human review with {approved_execution.type} "
+                "as the bound execution capability. No consequential action was executed."
+            ),
             tag="HUMAN_REVIEW",
         )
     ]
@@ -374,6 +409,12 @@ async def execute_webmcp_task(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowRun:
+    """Compatibility controlled-execution endpoint.
+
+    The approved Action Point, not the browser payload, selects which backend
+    adapter executes. Existing create_task clients keep the same endpoint while
+    update_crm_status reuses the identical authorization and idempotency gate.
+    """
     tenant_id = request.tenant_id.strip()
     if tenant_id not in current_user.tenant_ids:
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
