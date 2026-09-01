@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 const BASE_URL = process.env.CORRELACT_BASE_URL || "http://127.0.0.1:8000";
 const ADMIN_USERNAME = "admin@correlact.com";
 const ADMIN_PASSWORD = "admin-browser-test-pass";
+const LOGO_PATH = "/assets/correlact-logo-user.png?v=20260901b";
 
 async function signIn(page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   await page.locator("#login-username").fill(username);
@@ -72,19 +73,19 @@ for (const viewport of [
 
     const logo = page.locator(".login-brand img");
     await expect(logo).toBeVisible();
-    await expect(logo).toHaveAttribute("src", "/assets/correlact-logo.png");
+    await expect(logo).toHaveAttribute("src", LOGO_PATH);
     const logoMetrics = await logo.evaluate((img) => ({
       naturalWidth: img.naturalWidth,
       naturalHeight: img.naturalHeight,
       width: img.getBoundingClientRect().width,
       height: img.getBoundingClientRect().height,
     }));
-    expect(logoMetrics.naturalWidth).toBeGreaterThan(0);
-    expect(logoMetrics.naturalHeight).toBeGreaterThan(0);
+    expect(logoMetrics.naturalWidth).toBe(240);
+    expect(logoMetrics.naturalHeight).toBe(135);
     expect(logoMetrics.width).toBeGreaterThan(150);
     expect(logoMetrics.height).toBeGreaterThan(70);
 
-    const logoResponse = await page.request.get(`${BASE_URL}/assets/correlact-logo.png`);
+    const logoResponse = await page.request.get(`${BASE_URL}${LOGO_PATH}`);
     expect(logoResponse.ok()).toBe(true);
     expect((await logoResponse.body()).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
 
