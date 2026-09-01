@@ -6,10 +6,32 @@ FRONTEND = ROOT / "frontend"
 
 def test_main_app_applies_correlact_branding_and_shared_ui_layer():
     main_source = (FRONTEND / "js" / "main.js").read_text(encoding="utf-8")
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    theme_source = (FRONTEND / "correlact-theme.css").read_text(encoding="utf-8")
+    login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
+
     assert 'document.title = "CorrelAct"' in main_source
-    assert 'brand.textContent = "CorrelAct"' in main_source
+    assert "brand.innerHTML" in main_source
+    assert "Correl" in main_source and "Act" in main_source
     assert 'link.href = "/correlact-ui.css"' in main_source
+    assert 'link.href = "/correlact-theme.css"' in main_source
     assert 'actionsNav.textContent = "Actions"' in main_source
+
+    # The secured product now uses the intentional navy/red CorrelAct palette.
+    assert "--ca-bg: #06111f" in theme_source
+    assert "--ca-primary: #ef2b32" in theme_source
+
+    # The outer screen remains part of the SPA shell while login-view.js
+    # replaces only its presentation. Keep the exact ids consumed by auth.js.
+    assert 'id="login-screen"' in index_source
+    for selector_id in (
+        "login-form",
+        "login-username",
+        "login-password",
+        "login-error",
+        "login-submit-btn",
+    ):
+        assert f'id=\"{selector_id}\"' in login_source
 
 
 def test_investigation_workflow_labels_are_human_readable():
