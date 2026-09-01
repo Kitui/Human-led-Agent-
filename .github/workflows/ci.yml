@@ -31,6 +31,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+asyncpg://agent_lab:agent_lab@localhost:5432/agent_lab
+      BROWSER_DATABASE_URL: postgresql+asyncpg://agent_lab:agent_lab@localhost:5432/agent_lab_ui
       # Only used to sign/verify tokens within this CI run itself -- not a
       # real credential, so a plain committed value is fine here (unlike
       # OPENAI_API_KEY below, which is a real secret). Keep it >=32 bytes.
@@ -64,7 +65,34 @@ jobs:
       - name: Run unit tests
         run: pytest
 
-      # PRs now render the real production container in Chromium before merge.
+      # Browser rendering is intentionally isolated from the primary CI database.
+      # Starting the full production app seeds demo/reference state, so using a
+      # dedicated database guarantees the UI gate cannot affect the later live
+      # AI evaluation suite or its persisted history.
+      - name: Create isolated browser test database
+        run: |
+          python - <<'PY'
+          import asyncio
+          import asyncpg
+
+          async def main():
+              conn = await asyncpg.connect(
+                  host="127.0.0.1",
+                  port=5432,
+                  user="agent_lab",
+                  password="agent_lab",
+                  database="postgres",
+              )
+              try:
+                  await conn.execute("DROP DATABASE IF EXISTS agent_lab_ui WITH (FORCE)")
+                  await conn.execute("CREATE DATABASE agent_lab_ui")
+              finally:
+                  await conn.close()
+
+          asyncio.run(main())
+          PY
+
+      # PRs render the real production container in Chromium before merge.
       # This catches CSS/card/sidebar regressions that source-level assertions
       # cannot detect. The Azure workflow still deploys only successful main CI.
       - name: Start production container for browser checks
@@ -73,7 +101,7 @@ jobs:
           docker run --detach \
             --name correlact-ui-ci \
             --network host \
-            --env DATABASE_URL="$DATABASE_URL" \
+            --env DATABASE_URL="$BROWSER_DATABASE_URL" \
             --env JWT_SECRET_KEY="$JWT_SECRET_KEY" \
             --env ENABLE_DEMO_USERS=true \
             --env DEMO_NORTHSTAR_PASSWORD=northstar-browser-test-pass \
