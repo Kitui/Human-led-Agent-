@@ -80,7 +80,7 @@ function initDatePicker() {
 
 function initFilters() {
   qs("#ap-tenant-filter").innerHTML =
-    `<option value="all">All Tenants</option>` +
+    `<option value="all">All Organizations</option>` +
     currentTenantIds().map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
 
   qs("#ap-search").addEventListener("input", (e) => { apState.search = e.target.value.trim().toLowerCase(); renderActionPointsBody(); });

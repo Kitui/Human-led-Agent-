@@ -1,9 +1,9 @@
-/* Human-Led Agent Lab — Evals page
+/* CorrelAct — Evals page
  *
  * Every number here comes from actually running agent_lab/eval_cases.py's
  * real cases against the live investigator agent via POST /evals/run (see
  * agent_lab/evals_runner.py) — nothing is simulated. The page starts empty
- * until you click "Run Evals"; run history is persisted in PostgreSQL.
+ * until a platform administrator runs the suite; run history is persisted in PostgreSQL.
  *
  * Don't confuse the two different "category"-shaped things here:
  *  - Each eval case has a real topic label (EvalCaseResult.category, e.g.
@@ -20,7 +20,7 @@
  */
 import {
   qs, qsa, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
-  showConfirmModal,
+  showConfirmModal, getAuthSession,
 } from "./shared.js";
 
 let evalsChartInstance = null;
@@ -28,6 +28,7 @@ let categoryChartInstance = null;
 let realCategoryChartInstance = null;
 
 const EVALS_SUITES_PAGE_SIZE = 7;
+const PLATFORM_ADMIN_USERNAME = "admin@correlact.com";
 let evalsSuitesPage = 1;
 let currentEvalsRuns = [];
 
@@ -37,6 +38,25 @@ async function fetchEvalRuns() {
   } catch (_) {
     return [];
   }
+}
+
+function canRunLiveEvals() {
+  const username = getAuthSession()?.username || "";
+  return username.trim().toLowerCase() === PLATFORM_ADMIN_USERNAME;
+}
+
+function configureEvalRunButton() {
+  const btn = qs("#evals-run-btn");
+  if (!btn) return;
+  if (canRunLiveEvals()) {
+    btn.disabled = false;
+    btn.title = "Run the live 15-case evaluation suite";
+    btn.onclick = triggerEvalRun;
+    return;
+  }
+  btn.disabled = true;
+  btn.title = "Platform administrator access required to run live paid evaluations.";
+  btn.onclick = null;
 }
 
 function evalResultBadge(result) {
@@ -119,8 +139,8 @@ function renderEvalsStats(runs) {
       <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.5 3 8 7 9 4-1 7-4.5 7-9V6l-7-3Z"/><path d="m9.5 12 2 2 3.5-3.5"/></svg></div>
       <div class="stat-body">
         <div class="stat-label">Quality Gate Threshold</div>
-        <div class="stat-value">${latest ? `${latest.threshold.toFixed(0)}%` : "90%"}</div>
-        <span class="stat-trend flat">Defined in evals/eval_cases.py</span>
+        <div class="stat-value">${latest ? `${latest.threshold.toFixed(0)}%` : "98%"}</div>
+        <span class="stat-trend flat">Defined in agent_lab/eval_cases.py</span>
       </div>
     </div>
     <div class="stat-card">
@@ -130,15 +150,15 @@ function renderEvalsStats(runs) {
       <div class="stat-body">
         <div class="stat-label">Latest Suite Result</div>
         <div class="stat-value" style="font-size:19px;">${latest ? (latest.result === "passed" ? "Passed" : "Failed") : "Not run yet"}</div>
-        <span class="stat-trend flat">${latest ? `${latest.passed_count}/${latest.total_count} cases` : "Click Run Evals to start"}</span>
+        <span class="stat-trend flat">${latest ? `${latest.passed_count}/${latest.total_count} cases` : "Run history appears after an admin starts the suite"}</span>
       </div>
     </div>
     <div class="stat-card">
       <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg></div>
       <div class="stat-body">
         <div class="stat-label">Number of Test Cases</div>
-        <div class="stat-value">${latest ? latest.total_count : "—"}</div>
-        <span class="stat-trend flat">${latest ? `${categoryCount} categor${categoryCount === 1 ? "y" : "ies"}` : "Not run yet"}</span>
+        <div class="stat-value">${latest ? latest.total_count : "15"}</div>
+        <span class="stat-trend flat">${latest ? `${categoryCount} categor${categoryCount === 1 ? "y" : "ies"}` : "Current live suite"}</span>
       </div>
     </div>
     <div class="stat-card">
@@ -159,7 +179,7 @@ function renderEvalsScoreChart(runs) {
   if (evalsChartInstance) { evalsChartInstance.destroy(); evalsChartInstance = null; }
 
   if (runs.length === 0) {
-    container.innerHTML = `<p class="empty-note">No eval runs yet — click "Run Evals" to run the suite.</p>`;
+    container.innerHTML = `<p class="empty-note">No eval runs yet. A platform administrator can run the live suite.</p>`;
     return;
   }
 
@@ -455,9 +475,14 @@ function renderFailedCases(runs) {
 }
 
 async function triggerEvalRun() {
+  if (!canRunLiveEvals()) {
+    showBanner("Platform administrator access is required to run live evaluations.");
+    return;
+  }
+
   const btn = qs("#evals-run-btn");
   const confirmed = await showConfirmModal(
-    "This sends 3 real requests to the live investigator agent (real OpenAI API usage, ~20-40s).",
+    "This sends 15 real requests to the live investigator agent (real OpenAI API usage, typically a few minutes).",
     { title: "Run the eval suite?", okLabel: "Run Evals", cancelLabel: "Cancel" }
   );
   if (!confirmed) return;
@@ -472,8 +497,8 @@ async function triggerEvalRun() {
   } catch (err) {
     showBanner(`Eval run failed: ${err.message}`);
   } finally {
-    btn.disabled = false;
     btn.innerHTML = originalHtml;
+    configureEvalRunButton();
   }
 }
 
@@ -488,7 +513,7 @@ export async function renderEvalsPage() {
   renderEvalsSuitesTable(runs);
   renderFailedCases(runs);
 
-  qs("#evals-run-btn").onclick = triggerEvalRun;
+  configureEvalRunButton();
   qs("#evals-view-all-runs").onclick = (e) => {
     e.preventDefault();
     qs("#evals-suites-table").scrollIntoView({ behavior: "smooth", block: "center" });

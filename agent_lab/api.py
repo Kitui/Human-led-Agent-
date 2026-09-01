@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,11 +78,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Human-Led Agent Lab API",
+    title="CorrelAct API",
     version="1.0.0",
     description=(
-        "FastAPI layer for a human-led agent workflow: investigate, "
-        "review an Action Point, approve/reject, then execute."
+        "FastAPI layer for CorrelAct's human-led operational workflow: investigate, "
+        "review a Proposed Action, approve or reject it, then execute only the "
+        "capability the human approved."
     ),
     lifespan=lifespan,
 )
@@ -232,11 +233,19 @@ async def secured_app_shell() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+@app.get("/crm.html", include_in_schema=False)
+async def legacy_crm_page_redirect() -> RedirectResponse:
+    """The CRM workspace moved to /crm/ (see frontend/crm/index.html), which
+    carries the shared CorrelAct UI layer that this older page never had.
+    Redirect rather than continue serving the stale duplicate."""
+    return RedirectResponse(url="/crm/", status_code=308)
+
+
 @app.get("/health")
 async def health() -> dict:
     return {
         "status": "ok",
-        "service": "human-led-agent-lab",
+        "service": "correlact",
         "version": app.version,
     }
 
@@ -347,6 +356,55 @@ async def submit_webmcp_action_point(
             status_code=422,
             detail="CRM status fields may only be supplied for update_crm_status.",
         )
+
+    # Controlled execution is customer-bound. Validate that the agent supplied
+    # one unambiguous CRM customer reference before a reviewer can approve the
+    # proposal. Failing here is safer and clearer than discovering a bad binding
+    # only after approval when the write tool is invoked.
+    crm_evidence = [evidence for evidence in request.evidence if evidence.source == "crm"]
+    if not crm_evidence:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Controlled execution requires CRM evidence. For CRM evidence, "
+                "reference must be the exact customer name returned by get_customer."
+            ),
+        )
+
+    crm_references = {evidence.reference.strip().casefold() for evidence in crm_evidence}
+    if "" in crm_references or len(crm_references) != 1:
+        raise HTTPException(
+            status_code=422,
+            detail="CRM evidence must bind the proposal to exactly one customer name.",
+        )
+
+    crm_customer_name = crm_evidence[0].reference.strip()
+    crm_lookup = await lookup_customer(
+        db,
+        customer_name=crm_customer_name,
+        tenant_id=tenant_id,
+    )
+    if not crm_lookup.found:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "CRM evidence reference must be the exact customer name returned "
+                "by get_customer for the proposal organization."
+            ),
+        )
+
+    if requested_execution.type == "update_crm_status":
+        current_status = str(crm_lookup.customer.get("renewal_status") or "")
+        if current_status != requested_execution.crm_expected_status:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "CRM evidence is stale: current renewal_status is "
+                    f"'{current_status}', not the proposed expected status "
+                    f"'{requested_execution.crm_expected_status}'. Refresh CRM evidence "
+                    "and submit a new proposal for review."
+                ),
+            )
 
     approved_execution = ApprovedExecution(**requested_execution.model_dump())
     settings = await get_or_create_settings(db, tenant_id)
@@ -557,6 +615,11 @@ async def approve(
         raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
 
     try:
+        # In practice this API always takes the webmcp branch: every run that
+        # reaches AWAITING_APPROVAL has requires_human_approval=True, which is
+        # exactly what is_webmcp_action_point checks. approve_run's
+        # single-step approve-and-execute behavior is reachable only through
+        # the standalone CLI (agent_lab/app.py), never through this endpoint.
         if is_webmcp_action_point(run):
             return await approve_webmcp_action_point(
                 db,
@@ -600,9 +663,10 @@ async def run_evals(
 ) -> EvalSuiteRun:
     """Run the real live eval suite and persist its score history.
 
-    This is not triggered automatically from the UI because every suite run
-    makes real model calls and therefore has a real OpenAI API cost.
+    Every suite run makes real model calls and has a real OpenAI API cost, so
+    only the platform administrator may trigger it in the public demo.
     """
+    _require_platform_admin(current_user)
     return await run_eval_suite(db)
 
 
@@ -681,10 +745,16 @@ async def update_tenant_settings_route(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettings:
+    """Only the platform administrator may change organization settings.
+
+    The model, system prompt, and runtime limits configured here affect
+    every user of the organization, including the shared public demo
+    accounts, so ordinary organization members keep read-only access (see
+    read_tenant_settings) rather than write access to their own tenant.
+    """
     if not await tenant_exists(db, slug):
         raise HTTPException(status_code=404, detail="Tenant not found.")
-    if slug not in current_user.tenant_ids and not _is_platform_admin(current_user):
-        raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+    _require_platform_admin(current_user)
 
     try:
         return await update_settings(db, slug, **request.model_dump(exclude_unset=True))

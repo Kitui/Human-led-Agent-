@@ -144,7 +144,7 @@ function formatValue(value) {
 function renderEvidence(selector, entries) {
   const dl = $(selector);
   dl.innerHTML = entries
-    .map(([label, value]) => `<div><dt>${label}</dt><dd>${formatValue(value)}</dd></div>`)
+    .map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(formatValue(value))}</dd></div>`)
     .join("");
 }
 

@@ -348,7 +348,19 @@ you MUST pass the current tenant_id exactly.
 
 
 async def approve_run(db: AsyncSession, run_id: str, comment: str | None = None) -> WorkflowRun:
-    """Approve an Action Point and execute exactly the approved action."""
+    """Approve an Action Point and execute exactly the approved action.
+
+    This single-step approve-and-execute path is CorrelAct's original CLI
+    behavior (see agent_lab/app.py) and remains only for that standalone,
+    non-networked entry point. It is not reachable through the public API:
+    every Action Point that reaches AWAITING_APPROVAL has
+    requires_human_approval=True (see investigate_issue), so
+    api.py's POST /runs/{run_id}/approve always routes to
+    webmcp_tasks.approve_webmcp_action_point instead, which records approval
+    without executing and requires a separate WebMCP create_task /
+    update_crm_status call. That two-phase model, not this function, is
+    CorrelAct's actual approval boundary.
+    """
 
     orm_row = await db.get(WorkflowRunORM, run_id)
     if orm_row is None:

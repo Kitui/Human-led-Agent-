@@ -33,7 +33,11 @@ def test_login_hides_first_paint_until_visual_layers_and_logo_are_ready():
 
 def test_polish_layer_prevents_recorded_flicker_overlap_and_icon_collision():
     css = (FRONTEND / "correlact-fixes.css").read_text(encoding="utf-8")
-    assert "url('/assets/correlact-logo.png?v=20260901d')" in css
+    # The topbar renders the actual supplied logo through a real <img> tag
+    # (see frontend/js/main.js) rather than a CSS background-image url(), so
+    # this polish layer only needs to size/position that <img>.
+    assert ".topbar .logo img" in css
+    assert "object-fit: contain !important" in css
     assert ".login-brand img" in css
     assert "height: auto !important" in css
     assert "aspect-ratio: auto !important" in css

@@ -11,8 +11,12 @@ def test_main_app_applies_correlact_branding_and_shared_ui_layer():
     login_source = (FRONTEND / "js" / "login-view.js").read_text(encoding="utf-8")
 
     assert 'document.title = "CorrelAct"' in main_source
-    assert "brand.innerHTML" in main_source
-    assert "Correl" in main_source and "Act" in main_source
+    # The topbar renders the actual supplied logo asset directly instead of
+    # constructing an invented inline brand mark, so the old text/SVG brand
+    # is fully hidden rather than replaced with different invented markup.
+    assert 'brand.textContent = ""' in main_source
+    assert 'brand.setAttribute("aria-hidden", "true")' in main_source
+    assert 'logo.innerHTML = \'<img src="/assets/correlact-logo.png?v=20260901d"' in main_source
     assert 'link.href = "/correlact-ui.css"' in main_source
     assert 'link.href = "/correlact-theme.css"' in main_source
     assert 'actionsNav.textContent = "Actions"' in main_source
@@ -48,6 +52,40 @@ def test_shared_ui_layer_fixes_responsive_stepper_and_timeline_geometry():
     assert "@media (max-width: 760px)" in css
     assert ".stepper {\n    flex-direction: column;" in css
     assert ".sidebar,\n  .sidebar.collapsed {\n    position: fixed;" in css
+
+
+def test_main_app_shell_source_has_no_stale_branding_or_legacy_terminology():
+    """The old brand name, its legacy internal tenant codename, and the
+    internal "Tenant" term were previously left in the static SPA-shell
+    source even though runtime JS immediately overwrote all of them (title,
+    brand span, org table header/button/modal, tenant-select placeholder).
+    Fix the source directly instead of relying on JS to patch it every load:
+    it's what a crawler, "View Source", or a screen reader sees before JS
+    runs, and it's what a public-release code audit sees regardless."""
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    action_points_source = (FRONTEND / "js" / "action-points.js").read_text(encoding="utf-8")
+
+    assert "Human-Led Agent Lab" not in index_source
+    assert "tenant_red" not in index_source
+    assert "<title>CorrelAct</title>" in index_source
+    assert "Add Organization" in index_source
+    assert "<th>Organization</th>" in index_source
+    assert '<span class="filter-label">Organization</span>' in index_source
+    assert "All Organizations" in action_points_source
+
+
+def test_public_facing_pages_use_organization_not_tenant_terminology():
+    """landing.html is the public marketing page and index.html's Runs
+    subtitle is not JS-patched at runtime (unlike the Settings "Coming soon"
+    badges) -- both previously said "tenant" where the product-facing term
+    is "Organization" everywhere else."""
+    landing_source = (FRONTEND / "landing.html").read_text(encoding="utf-8")
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+
+    assert "with organization scope and idempotency enforced" in landing_source
+    assert "tenant scope" not in landing_source
+    assert "workflow executions across organizations" in index_source
+    assert "across tenants" not in index_source
 
 
 def test_webmcp_workspaces_use_exact_correlact_brand_casing():

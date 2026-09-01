@@ -335,6 +335,23 @@ function populateModelForm(tenantSlug, settings) {
   qs("#settings-model-auto-update-prompt").checked = !!settings.auto_update_prompt;
 }
 
+// Organization settings (model, system prompt, runtime limits) affect every
+// user of the organization, including the shared public demo accounts, so
+// only the platform administrator may save changes here. The backend enforces
+// this independently (PATCH /tenants/{slug}/settings); this just keeps
+// non-admin members from hitting a confusing failed save.
+function applySettingsFormAdminAccess() {
+  const admin = isPlatformAdmin();
+  const note = qs("#settings-forms-access-note");
+  if (note) note.hidden = admin;
+
+  [qs("#settings-general-save-btn"), qs("#settings-model-save-btn")].forEach((btn) => {
+    if (!btn) return;
+    btn.disabled = !admin;
+    btn.title = admin ? "" : "Platform administrator access required to change organization settings.";
+  });
+}
+
 async function loadAndRenderTenantSettings() {
   const slug = currentTenantSlug();
   if (!slug) return;
@@ -342,6 +359,7 @@ async function loadAndRenderTenantSettings() {
     const settings = await api(`/tenants/${encodeURIComponent(slug)}/settings`);
     populateGeneralForm(slug, settings);
     populateModelForm(slug, settings);
+    applySettingsFormAdminAccess();
   } catch (err) {
     showBanner(err.message || "Could not load organization settings.");
   }

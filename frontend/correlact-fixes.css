@@ -8,9 +8,17 @@
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  background: transparent url('/assets/correlact-logo.png?v=20260901d') center / contain no-repeat !important;
+  background: transparent !important;
+  overflow: hidden !important;
 }
 .topbar .logo svg { display: none !important; }
+.topbar .logo img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: left center !important;
+}
 .topbar .brand { display: none !important; }
 
 /* Never size the login artwork through the flex parent's height. The image owns

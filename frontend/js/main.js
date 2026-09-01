@@ -74,18 +74,16 @@ function applyCorrelActBranding() {
   document.title = "CorrelAct";
 
   const brand = qs(".brand");
-  if (brand) brand.innerHTML = 'Correl<span style="color:#ef2b32">Act</span>';
+  if (brand) {
+    brand.textContent = "";
+    brand.setAttribute("aria-hidden", "true");
+  }
 
   const logo = qs(".logo");
   if (logo) {
+    logo.classList.add("correlact-wordmark");
     logo.setAttribute("aria-label", "CorrelAct");
-    logo.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M18.5 6.5A8 8 0 1 0 18 18"/>
-        <path d="M7.5 16 12 8l4.5 8"/>
-        <circle cx="7.5" cy="12" r="1.6" fill="#ef2b32" stroke="none"/>
-        <path d="m16 18 5-9" stroke="#ef2b32"/>
-      </svg>`;
+    logo.innerHTML = '<img src="/assets/correlact-logo.png?v=20260901d" alt="" width="240" height="135" />';
   }
 
   const dashboardSubtitle = qs('[data-page="dashboard"] .subtitle');

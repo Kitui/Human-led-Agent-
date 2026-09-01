@@ -108,7 +108,7 @@ export async function registerActionPointWebMcpTool() {
           type: "array",
           minItems: 1,
           maxItems: 8,
-          description: "Evidence references gathered from WebMCP tools.",
+          description: "Evidence references gathered from WebMCP tools. Include CRM evidence for controlled execution so the approved action is bound to one customer.",
           items: {
             type: "object",
             properties: {
@@ -118,7 +118,7 @@ export async function registerActionPointWebMcpTool() {
               },
               reference: {
                 type: "string",
-                description: "Source record identifier, for example CASE-ACME-8841 or INV-ACME-2026-08.",
+                description: "Evidence reference. For Support/Billing use the source record ID (for example CASE-ACME-8841 or INV-ACME-2026-08). For CRM use the exact customer name returned by get_customer (for example ACME); that customer name binds any later approved execution scope.",
               },
               finding: {
                 type: "string",
