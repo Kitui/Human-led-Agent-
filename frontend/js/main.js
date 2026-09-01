@@ -8,6 +8,7 @@ import { renderDashboardPage } from "./dashboard.js";
 import { renderTracesPage } from "./traces.js";
 import { renderEvalsPage } from "./evals.js";
 import { renderSettingsPage } from "./settings.js";
+import { enhanceSettingsPage } from "./settings-ux.js";
 import {
   hasValidSession, showLoginScreen, hideLoginScreen, initLoginForm,
   currentTenantIds, currentUsername, logout, restoreBrowserSession,
@@ -99,7 +100,16 @@ function navigateTo(page) {
   qsa(".page").forEach((el) => el.classList.toggle("active", el.dataset.page === page));
   qsa(".nav-item").forEach((el) => el.classList.toggle("active", el.dataset.page === page));
   const renderer = PAGE_RENDERERS[page];
-  if (renderer) renderer();
+  const renderResult = renderer ? renderer() : null;
+
+  /* Settings has a separate interaction layer because most completion cards
+     represent enforced/read-only capabilities rather than editable values.
+     Decorate immediately (the card shells are created synchronously) and once
+     more after async status data has finished loading. */
+  if (page === "settings") {
+    enhanceSettingsPage();
+    Promise.resolve(renderResult).then(enhanceSettingsPage).catch(() => {});
+  }
 }
 
 const VALID_PAGES = ["dashboard", "investigate", "action-points", "runs", "approvals", "traces", "evals", "settings"];
