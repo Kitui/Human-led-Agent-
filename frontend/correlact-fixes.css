@@ -1,6 +1,6 @@
 /* CorrelAct polish layer: supplied logo, stable first paint, and viewport-safe login geometry. */
 
-/* Use the supplied CorrelAct artwork everywhere the product mark is visible. */
+/* Use the verified user-supplied CorrelAct artwork everywhere the product mark is visible. */
 .topbar .logo {
   width: 112px !important;
   height: 58px !important;
@@ -8,7 +8,7 @@
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  background: transparent url('/assets/correlact-logo.png') center / contain no-repeat !important;
+  background: transparent url('/assets/correlact-logo-user.png?v=20260901b') center / contain no-repeat !important;
 }
 .topbar .logo svg { display: none !important; }
 .topbar .brand { display: none !important; }
@@ -36,6 +36,29 @@
   object-position: left center !important;
   flex: none !important;
   transform: none !important;
+}
+
+/* styles.css has a higher-specificity #login-form input rule with 12px left
+   padding. Override it explicitly so input text can never collide with the
+   leading icon. Keep the browser/password affordance clear on the right too. */
+#login-form .login-input-wrap input[type="text"],
+#login-form .login-input-wrap input[type="password"] {
+  width: 100% !important;
+  height: 54px !important;
+  padding: 0 52px 0 52px !important;
+  margin: 0 !important;
+  text-indent: 0 !important;
+  box-sizing: border-box !important;
+}
+#login-form .login-input-icon {
+  left: 16px !important;
+  width: 20px !important;
+  height: 20px !important;
+  z-index: 2 !important;
+}
+#login-form .password-toggle {
+  right: 12px !important;
+  z-index: 2 !important;
 }
 
 /* Keep native/browser autofill from flashing bright white on the dark login. */
@@ -115,7 +138,8 @@
   .login-panel h2 { font-size: 26px; }
   .login-panel-subtitle { margin-bottom: 18px; }
   .login-field { margin-bottom: 12px; }
-  .login-input-wrap input { height: 46px; }
+  #login-form .login-input-wrap input[type="text"],
+  #login-form .login-input-wrap input[type="password"] { height: 46px !important; }
   .login-panel #login-error { min-height: 32px; margin-bottom: 10px; }
   .login-panel #login-submit-btn { min-height: 46px; }
   .login-security-note { margin-top: 12px; font-size: 10.5px; }
