@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — Approvals page
+/* CorrelAct — Approvals page
  *
  * Every stat, table field, and detail-panel field below is computed from
  * real run/trace data. Two things the reference design showed have no real

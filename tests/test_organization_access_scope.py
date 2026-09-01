@@ -3,6 +3,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 from agent_lab.models import EvalSuiteRun
 
 
@@ -137,13 +139,30 @@ async def test_platform_admin_lists_and_manages_all_organizations(client, auth_h
 def test_settings_ui_hides_platform_controls_for_org_users():
     source = SETTINGS_JS.read_text(encoding="utf-8")
 
-    assert 'PLATFORM_ADMIN_USERNAME = "admin@correlact.com"' in source
+    assert "isPlatformAdmin" in source
     assert 'addButton.classList.toggle("hidden", !admin)' in source
     assert 'if (!isPlatformAdmin()) return;' in source
     assert 'heading.textContent = admin ? "Organization Management" : "Organization Access"' in source
     assert "Organization-scoped access." in source
     assert "operational-item" in source
     assert "settings-access-note" in source
+
+
+def test_platform_admin_check_is_defined_once_and_shared():
+    """evals.js and settings.js used to each define their own copy of
+    PLATFORM_ADMIN_USERNAME and an admin-comparison function -- a real risk
+    of silent divergence if the admin account is ever renamed. Both now
+    import a single shared isPlatformAdmin() from shared.js."""
+    shared_source = (ROOT / "frontend" / "js" / "shared.js").read_text(encoding="utf-8")
+    evals_source = (ROOT / "frontend" / "js" / "evals.js").read_text(encoding="utf-8")
+    settings_source = SETTINGS_JS.read_text(encoding="utf-8")
+
+    assert 'export const PLATFORM_ADMIN_USERNAME = "admin@correlact.com";' in shared_source
+    assert "export function isPlatformAdmin()" in shared_source
+    assert "PLATFORM_ADMIN_USERNAME" not in evals_source
+    assert "PLATFORM_ADMIN_USERNAME" not in settings_source
+    assert "isPlatformAdmin" in evals_source
+    assert "isPlatformAdmin" in settings_source
 
 
 def test_settings_forms_are_read_only_for_non_admin_organization_users():
@@ -166,7 +185,7 @@ def test_settings_forms_are_read_only_for_non_admin_organization_users():
 def test_settings_javascript_parses_after_scope_and_ux_update():
     node = shutil.which("node")
     if node is None:
-        return
+        pytest.skip("node is not installed")
 
     subprocess.run(
         [node, "--check", str(SETTINGS_JS)],

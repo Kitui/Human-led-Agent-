@@ -1,4 +1,4 @@
-import { getAuthSession } from "./shared.js";
+import { escapeHtml, getAuthSession } from "./shared.js";
 import { restoreBrowserSession } from "./auth.js";
 import { fetchCase, registerSupportWebMcpTools } from "./webmcp/support-tools.js";
 
@@ -59,7 +59,7 @@ async function init() {
   }
 
   tenantSelect.innerHTML = session.tenantIds
-    .map((tenantId) => `<option value="${tenantId}">${tenantId}</option>`)
+    .map((tenantId) => `<option value="${escapeHtml(tenantId)}">${escapeHtml(tenantId)}</option>`)
     .join("");
 
   try {

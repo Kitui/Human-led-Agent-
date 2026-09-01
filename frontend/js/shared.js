@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — shared utilities
+/* CorrelAct — shared utilities
  *
  * DOM helpers, formatting, badges, the fetch wrapper, the local run-history
  * cache, and other state used by more than one page module. Page-specific
@@ -178,6 +178,14 @@ function readStoredSession() {
 let authSession = readStoredSession();
 
 export function getAuthSession() { return authSession; }
+
+// Single source of truth for the platform-admin identity check -- evals.js
+// and settings.js each used to define their own copy of this constant and
+// comparison, risking silent divergence if the admin account is ever renamed.
+export const PLATFORM_ADMIN_USERNAME = "admin@correlact.com";
+export function isPlatformAdmin() {
+  return (getAuthSession()?.username || "").trim().toLowerCase() === PLATFORM_ADMIN_USERNAME;
+}
 export function setAuthSession(session) {
   // Every successful login goes through here -- clearing the local run
   // cache at this single choke point closes the leak regardless of how the

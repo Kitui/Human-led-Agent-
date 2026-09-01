@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -43,7 +45,7 @@ def test_settings_interaction_layer_is_wired_into_router():
 def test_settings_interaction_javascript_parses():
     node = shutil.which("node")
     if node is None:
-        return
+        pytest.skip("node is not installed")
 
     for path in (SETTINGS_UX, MAIN_JS):
         subprocess.run(

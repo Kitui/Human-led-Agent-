@@ -194,10 +194,13 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
 
   await page.locator('.nav-item[data-page="dashboard"]').click();
   await expect(page.locator('section.page[data-page="dashboard"]')).toHaveClass(/active/);
+  // toHaveText(array) retries until the DOM settles; a one-shot
+  // allTextContents() read right after a navigation/re-render can catch a
+  // transient pre-render state and fail on an otherwise-correct page.
   const northStarExpectedCount = northStarBaseline + 1;
   await expect(page.locator("#dashboard-runs-table tbody tr")).toHaveCount(northStarExpectedCount);
-  const northStarOrgCells = await page.locator("#dashboard-runs-table tbody tr td:nth-child(2)").allTextContents();
-  expect(northStarOrgCells.every((text) => text === "NorthStar")).toBe(true);
+  await expect(page.locator("#dashboard-runs-table tbody tr td:nth-child(2)"))
+    .toHaveText(Array(northStarExpectedCount).fill("NorthStar"));
   await expect(page.locator("#dashboard-stats .stat-card").first().locator(".stat-value")).toHaveText(String(northStarExpectedCount));
 
   await page.locator("#tenant-select").click();
@@ -205,8 +208,8 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
   await expect(page.locator("#tenant-select-label")).toHaveText("Neptune");
   const neptuneExpectedCount = neptuneBaseline + 2;
   await expect(page.locator("#dashboard-runs-table tbody tr")).toHaveCount(neptuneExpectedCount);
-  const neptuneOrgCells = await page.locator("#dashboard-runs-table tbody tr td:nth-child(2)").allTextContents();
-  expect(neptuneOrgCells.every((text) => text === "Neptune")).toBe(true);
+  await expect(page.locator("#dashboard-runs-table tbody tr td:nth-child(2)"))
+    .toHaveText(Array(neptuneExpectedCount).fill("Neptune"));
   await expect(page.locator("#dashboard-stats .stat-card").first().locator(".stat-value")).toHaveText(String(neptuneExpectedCount));
   await expect(page.locator("#dashboard-runs-table")).not.toContainText("NorthStar");
 
@@ -216,7 +219,7 @@ test("admin organization selector re-scopes dashboard runs and visuals", async (
   await page.locator('.nav-item[data-page="runs"]').click();
   await expect(page.locator('section.page[data-page="runs"]')).toHaveClass(/active/);
   await expect(page.locator("#runs-table-full tbody tr")).toHaveCount(neptuneExpectedCount);
-  const neptuneRunsCells = await page.locator("#runs-table-full tbody tr td:nth-child(2)").allTextContents();
-  expect(neptuneRunsCells.every((text) => text === "Neptune")).toBe(true);
+  await expect(page.locator("#runs-table-full tbody tr td:nth-child(2)"))
+    .toHaveText(Array(neptuneExpectedCount).fill("Neptune"));
   await expect(page.locator("#runs-table-full")).not.toContainText("NorthStar");
 });
