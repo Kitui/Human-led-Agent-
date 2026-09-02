@@ -1,74 +1,117 @@
+<div align="center">
+
 # CorrelAct
 
-**Human-led operational investigation and controlled execution through WebMCP.**
+**Human-led operational intelligence, built on WebMCP.**
 
-CorrelAct helps an agent correlate evidence across operational systems, propose one focused next action, and execute consequential work only after a human has explicitly approved it. The product combines browser-native WebMCP tools, organization isolation, human approval, durable idempotency, traces, evaluation gates, and a FastAPI/PostgreSQL backend.
+CorrelAct lets a browser-native AI agent read evidence across CRM, Billing, and Support, correlate it into one proposed action, and execute consequential work *only* after a human has explicitly approved exactly that action.
 
-## Why CorrelAct
+[![CI](https://github.com/Kitui/Human-led-Agent-/actions/workflows/ci.yml/badge.svg)](https://github.com/Kitui/Human-led-Agent-/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](requirements.txt)
+[![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](agent_lab/api.py)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-async-4169E1?logo=postgresql&logoColor=white)](docker-compose.yml)
+[![Built for the OpenAI WebMCP Challenge](https://img.shields.io/badge/OpenAI-WebMCP%20Challenge-EF2B32)](docs/webmcp.md)
 
-Operational issues rarely live in one system. A renewal problem may begin as a Support case, depend on CRM account context, and ultimately be explained by Billing evidence. CorrelAct lets a browser agent inspect those sources through typed, constrained WebMCP capabilities rather than relying on copied context or unrestricted automation.
+<br />
 
-The trust model is deliberately asymmetric:
+<img src="docs/screenshots/dashboard.png" alt="CorrelAct dashboard showing run volume, status breakdown, and human-reviewed execution activity" width="860" />
 
-```text
-Read evidence freely within the authenticated organization
-                         ↓
-               Correlate and investigate
-                         ↓
-             Propose one focused action
-                         ↓
-                  HUMAN REVIEW
-                   ↙          ↘
-               Reject         Approve
-                 ↓               ↓
-            No external      Execution becomes
-               write         eligible in Tasks
-                                 ↓
-                          create_task
-                                 ↓
-                        Protected backend
-                                 ↓
-                          GitHub Issue
-                                 ↓
-                       Auditable completion
+</div>
+
+<br />
+
+## Table of contents
+
+- [The problem](#the-problem)
+- [How CorrelAct works](#how-correlact-works)
+- [Two governed write paths, one gate](#two-governed-write-paths-one-gate)
+- [Dynamic Agent Authority](#dynamic-agent-authority)
+- [WebMCP tools](#webmcp-tools)
+- [Browser workspaces](#browser-workspaces)
+- [Architecture](#architecture)
+- [Security and trust boundaries](#security-and-trust-boundaries)
+- [Live demo](#live-demo)
+- [Run it locally](#run-it-locally)
+- [API flow](#api-flow)
+- [Testing and CI](#testing-and-ci)
+- [Project layout](#project-layout)
+- [License](#license)
+
+## The problem
+
+Operational issues rarely live in one system. A renewal problem might start as a Support case, depend on CRM account context, and ultimately be explained by a Billing dispute. Today, closing that loop with an AI agent usually means one of two bad options: give the agent standing write access to production systems and hope its judgment holds up every time, or keep it read-only and force a human to do all the actual work by hand.
+
+CorrelAct is built on the premise that neither is necessary. A browser-native agent can be **fully autonomous while investigating** — reading evidence, correlating sources, forming a recommendation — and **fully constrained while acting**, because the write it's ultimately allowed to make is decided by a human before the agent ever touches anything consequential.
+
+## How CorrelAct works
+
+The trust model is deliberately asymmetric: wide open for reading, narrow and human-gated for writing.
+
+```mermaid
+flowchart TD
+    A["Read evidence freely\n(CRM · Billing · Support)"] --> B[Correlate across sources]
+    B --> C["Propose exactly one action\nsubmit_action_point"]
+    C --> D{Human review}
+    D -- Reject --> E["No external write\never occurs"]
+    D -- Approve --> F["Run becomes APPROVED\n(authorized, not executed)"]
+    F --> G["Exactly one execution capability\nbecomes available"]
+    G --> H["Constrained execution\ncreate_task or update_crm_status"]
+    H --> I["Idempotent, audited outcome"]
+
+    style D fill:#ef2b32,color:#fff,stroke:#ef2b32
+    style F fill:#0c192a,color:#fff,stroke:#22344a
+    style H fill:#0c192a,color:#fff,stroke:#22344a
 ```
 
-**Approval does not execute.** It only changes the run into an approved state. The external write happens later through the protected Tasks execution boundary.
+**Approval does not execute.** It only moves a run into an approved state and unlocks the one execution capability a human reviewed. The write itself happens later, through a protected backend boundary that re-verifies organization, customer, approval state, and idempotency — independent of anything the browser agent claims.
 
-## Reference organizations
+## Two governed write paths, one gate
 
-The challenge demo uses two separate CorrelAct organizations so tenant isolation remains visible without confusing customers with platform accounts:
+Most agent demos show a single write action. CorrelAct deliberately implements **two independent, differently-shaped consequential actions** — creating an external task and mutating a CRM record — to prove the governance boundary is a reusable architectural pattern, not a special case hardcoded around one integration.
 
-| Organization | Demo user | Reference customer |
+| | `create_task` | `update_crm_status` |
 | --- | --- | --- |
-| **NorthStar** | `user@northstar.com` | ACME |
-| **Neptune** | `user@neptune.com` | GreenMart |
-| Both | `admin@correlact.com` | Administrative access to both organizations |
+| Effect | Creates a GitHub issue from the approved scope | Applies one allow-listed CRM renewal-status transition |
+| Approved scope frozen at review time | Title, priority, target team, customer | `expected_status → target_status`, customer |
+| Idempotency | PostgreSQL advisory lock + durable marker reconciled against GitHub | PostgreSQL advisory lock + durable execution record |
+| Rejects | Unapproved, cross-organization, mismatched-customer, wrong-capability runs | Unapproved, cross-organization, mismatched-customer, stale-state, disallowed-transition runs |
 
-Passwords are never committed to the repository. Demo accounts are disabled by default and, when intentionally enabled, require environment-supplied passwords of at least 16 characters.
+Both routes end at the same reviewer screen before anything happens — the human sees the *exact* execution capability and the *exact* scope before it can ever run:
 
-The backend retains the established internal field name `tenant_id` as an API/schema compatibility contract. Product-facing surfaces call this boundary an **Organization**.
+<img src="docs/screenshots/approvals-detail.png" alt="Approvals detail panel showing Execution Capability: update_crm_status and Approved Execution Scope: renewal_status blocked to escalation_open" width="760" />
 
-## WebMCP Challenge work
+```mermaid
+flowchart LR
+    A[HUMAN APPROVAL] --> B["Shared controlled-execution gate\norganization · evidence · state · idempotency · audit"]
+    B --> C[create_task]
+    B --> D[update_crm_status]
+    C --> E[GitHub Issue]
+    D --> F[CRM record]
+```
 
-CorrelAct existed as a human-led agent lab before the challenge period. The browser-native WebMCP product layer was built during the WebMCP Challenge window beginning August 25, 2026.
+Same governed boundary. Different consequential action. The agent receives only the capability the human approved — see [`docs/judge-testing.md`](docs/judge-testing.md) for the full step-by-step proof of both paths.
 
-Challenge work includes:
+## Dynamic Agent Authority
 
-- Support workspace with the read-only `get_case` WebMCP tool.
-- CRM workspace with the read-only `get_customer` WebMCP tool.
-- Billing workspace with the read-only `get_invoice` WebMCP tool.
-- Investigation workspace that exposes the three evidence sources together.
-- `submit_action_point`, which persists one evidence-grounded proposal for human review without performing an external write.
-- Tasks workspace with `create_task`, which can execute only an already-approved CorrelAct action.
-- Server-enforced organization and customer matching across browser-agent execution.
-- Durable idempotency so repeated execution requests create one external task.
-- Shared authenticated browser sessions across CorrelAct workspaces.
-- Immediate Tasks workspace refresh after successful WebMCP execution.
-- Responsive CorrelAct design system, traces, audit presentation, and challenge-focused regression coverage.
-- Public-release identity migration from the original learning labels to NorthStar/Neptune while preserving existing runs, users, customers, settings, traces, execution records, and eval history.
+The Tasks workspace doesn't just *block* an unapproved write at the backend — it doesn't even **advertise** the tool to the browser agent until there's human-approved work for it to act on. Registration is computed live from the set of currently-approved, currently-executable runs for the signed-in organization.
 
-The existing internal field and tool name `action_point` / `submit_action_point` are retained as compatibility contracts. The product-facing language is **Actions** and **Proposed Action**.
+<img src="docs/screenshots/tasks-authority.png" alt="Tasks workspace showing the Dynamic Agent Authority panel: read evidence, propose action, execute — with create_task registered only while approved work exists" width="760" />
+
+If there's no approved work, `create_task` and `update_crm_status` simply don't exist in that page's WebMCP tool list — there's nothing for a compromised or confused agent to even attempt.
+
+## WebMCP tools
+
+| Tool | Kind | Workspace | What it does |
+| --- | --- | --- | --- |
+| `get_case` | Read | Support | Reads a customer support case: status, priority, escalation state, assigned team |
+| `get_customer` | Read | CRM | Reads a customer account: plan, renewal status/value, billing status |
+| `get_invoice` | Read | Billing | Reads an invoice: amounts, variance, dispute state, renewal hold |
+| `submit_action_point` | Propose | Investigation | Persists one evidence-grounded proposal for human review — performs no external write |
+| `create_task` | Constrained write | Tasks | Executes one already-approved `create_task` run |
+| `update_crm_status` | Constrained write | Tasks | Executes one already-approved `update_crm_status` run |
+
+Every tool is a thin, typed wrapper (`document.modelContext.registerTool`) around the same protected FastAPI endpoints the human UI calls. WebMCP is a *capability surface*, not a bypass — there is no parallel security model for agent-originated requests.
 
 ## Browser workspaces
 
@@ -76,123 +119,80 @@ The existing internal field and tool name `action_point` / `submit_action_point`
 | --- | --- | --- | --- |
 | **Support** | Inspect customer case evidence | `get_case` | Read only |
 | **CRM** | Inspect account and renewal context | `get_customer` | Read only |
-| **Billing** | Inspect invoice/dispute evidence | `get_invoice` | Read only |
-| **Investigation** | Verify evidence across systems | all three reads + `submit_action_point` | Read + propose |
-| **Approvals** | Human reviews the proposed action | — | Human decision |
-| **Tasks** | Execute approved work | `create_task` | Constrained write |
-| **Traces** | Inspect investigation and execution history | — | Audit/read |
+| **Billing** | Inspect invoice and dispute evidence | `get_invoice` | Read only |
+| **Investigation** | Verify evidence across all three systems | all reads + `submit_action_point` | Read + propose |
+| **Approvals** | Human reviews the proposed action and its exact execution capability | — | Human decision |
+| **Tasks** | Execute approved work, nothing else | `create_task`, `update_crm_status` | Constrained write |
+| **Traces** | Inspect the full investigation → approval → execution timeline | — | Audit / read |
 
-The browser layer is not a bypass around the backend. WebMCP tools call the same protected application boundaries used by CorrelAct, and the backend remains authoritative for organization ownership, approval state, customer scope, idempotency, and execution eligibility.
+<img src="docs/screenshots/crm.png" alt="CRM workspace side-by-side human search form and the get_customer WebMCP tool it exposes" width="760" />
+
+<img src="docs/screenshots/investigate.png" alt="Investigate workspace with the issue-description form and investigation workflow stepper" width="760" />
 
 ## Architecture
 
-```text
-ChatGPT / WebMCP-capable browser agent
-                    ↓
-        CorrelAct browser workspaces
-        ↙             ↓             ↘
-    Support          CRM          Billing
-    get_case    get_customer    get_invoice
-        ↘             ↓             ↙
-              Investigation
-                    ↓
-          submit_action_point
-                    ↓
-               FastAPI
-                    ↓
-              PostgreSQL
-         (runs, evidence state,
-       users, organizations/settings,
-          executed actions)
-                    ↓
-             Human approval
-                    ↓
-             Approved run
-                    ↓
-      Tasks / WebMCP create_task
-                    ↓
-      Protected execution boundary
-                    ↓
-             GitHub Issues API
-                    ↓
-      Durable idempotency record
+```mermaid
+flowchart TD
+    Agent["ChatGPT / WebMCP-capable browser agent"]
+    Agent --> Support["Support\nget_case"]
+    Agent --> CRM["CRM\nget_customer"]
+    Agent --> Billing["Billing\nget_invoice"]
+    Support --> Inv[Investigation workspace]
+    CRM --> Inv
+    Billing --> Inv
+    Inv --> Submit["submit_action_point"]
+    Submit --> API[FastAPI]
+    API --> DB[("PostgreSQL\nruns · evidence · users\norganizations · executed actions")]
+    DB --> Approval[Human approval]
+    Approval --> Approved[Run: APPROVED]
+    Approved --> Tasks["Tasks workspace\ncreate_task / update_crm_status"]
+    Tasks --> Boundary[Protected execution boundary]
+    Boundary --> GH[GitHub Issues API]
+    Boundary --> CRMWrite[CRM record]
+    Boundary --> Idem["Durable idempotency record"]
 ```
 
-The underlying agent workflow and API use the same reusable backend functions, so browser-agent execution does not create a parallel security model.
+The agent workflow (CLI/API investigator) and the browser-agent WebMCP path converge on the same backend functions — see [`docs/unified-controlled-execution.md`](docs/unified-controlled-execution.md). Browser-agent execution never creates a parallel, weaker security model.
 
-## Product run states
+### Run states
 
-```text
-NEW
- ↓
-INVESTIGATING
- ↓
-AWAITING_APPROVAL
- ↙             ↘
-REJECTED      APPROVED
-                 ↓
-             EXECUTING
-                 ↓
-             COMPLETED
+```mermaid
+stateDiagram-v2
+    [*] --> NEW
+    NEW --> INVESTIGATING
+    INVESTIGATING --> AWAITING_APPROVAL
+    AWAITING_APPROVAL --> REJECTED
+    AWAITING_APPROVAL --> APPROVED
+    APPROVED --> EXECUTING
+    EXECUTING --> COMPLETED
+    REJECTED --> [*]
+    COMPLETED --> [*]
 ```
 
-A run cannot legitimately jump from investigation to external execution. Consequential writes require the approved state first.
-
-## Project layout
-
-```text
-agent_lab/          Application package: agent, API, workflow, DB, MCP, tools
-frontend/           CorrelAct UI and WebMCP browser workspaces
-evals/              Live AI quality-gate runner
-scripts/            Smoke tests and public-release security audit
-tests/              Pytest unit/integration/security/UI contract tests
-.github/workflows/  CI and Azure deployment pipelines
-docker-compose.yml  Local PostgreSQL
-requirements.txt    Exact direct dependency pins
-requirements.lock   Fully resolved CI/deployment dependency snapshot
-LICENSE              MIT license
-```
+A run cannot legitimately skip from investigation to external execution — consequential writes require the `APPROVED` state first, and `APPROVED` is not itself a write.
 
 ## Security and trust boundaries
 
-CorrelAct is designed so browser-agent convenience does not weaken server-side controls.
+- **Authentication** — every protected route requires an authenticated CorrelAct session.
+- **Organization isolation** — access is checked server-side before investigation or execution, never inferred from client-supplied context.
+- **Customer matching** — an approved run cannot be replayed against a different customer.
+- **Human approval** — proposal and execution are separate phases; approving does not execute.
+- **Constrained execution** — neither write tool can rewrite the approved scope, priority, target, or customer.
+- **Idempotency** — a PostgreSQL advisory lock plus a durable execution record means retries and repeated agent calls cannot duplicate a write.
+- **Dynamic tool exposure** — a write tool is only registered in the browser while matching approved work exists for that organization.
+- **Auditability** — every run's evidence, trace, approval decision, and execution result stays visible in CorrelAct.
+- **Public-release history audit** — CI scans reachable git history for high-confidence credential material before build, test, or eval gates proceed.
+- **WCAG AA color contrast** and a full accessibility pass across both the light and dark themes.
 
-- **Authentication:** protected routes require an authenticated CorrelAct session.
-- **Organization isolation:** organization access is checked server-side before investigation or execution.
-- **Customer matching:** an approved run cannot be replayed against a different customer.
-- **Human approval:** proposal and execution are separate phases.
-- **Constrained execution:** `create_task` cannot rewrite the approved action, priority, target team, or scope.
-- **Idempotency:** the same approved action cannot create duplicate external tasks through ordinary retries or repeated browser-agent calls.
-- **Auditability:** runs, traces, approval state, and execution results remain visible in CorrelAct.
-- **Public-release audit:** CI scans reachable git history for high-confidence credential material before build/test/eval gates proceed.
+150+ automated tests (unit, integration, security, and browser/UI contract tests) plus a 15-case live AI evaluation suite (operational judgment, approval policy, organization isolation, prompt/credential attacks, guardrail behavior) run in CI on every change — see [Testing and CI](#testing-and-ci).
 
-## Identity migration and history preservation
+## Live demo
 
-The original learning environment used `tenant_red`, `tenant_green`, `red_user`, `green_user`, and `admin_user`. Current CorrelAct startup performs an idempotent in-place migration to the public demo identity model:
+A live deployment runs on Azure Container Apps. Demo credentials for the two reference organizations (**NorthStar** / ACME and **Neptune** / GreenMart) are provided with the challenge submission rather than committed to this repository — see [`docs/judge-testing.md`](docs/judge-testing.md) for the exact recommended test script, including the second controlled-write proof.
 
-```text
-tenant_red   → NorthStar
-tenant_green → Neptune
-red_user     → user@northstar.com
-green_user   → user@neptune.com
-admin_user   → admin@correlact.com
-```
+<img src="docs/screenshots/login.png" alt="CorrelAct sign-in screen with Issue Discovery, Connected Evidence, and Governed Execution highlights" width="760" />
 
-The migration updates ownership and embedded identity references across existing customers, workflow runs, traces, action data, tenant settings, user grants, execution records, and stored eval history before canonical reference seeding occurs. It does **not** discard or replace historical runs. Re-running startup after migration is a no-op for already migrated data.
-
-## GitHub task execution and idempotency
-
-Every approved write receives a deterministic workflow idempotency key. `create_task` obtains a PostgreSQL advisory lock and checks the local `executed_actions` table. If no local execution exists, the GitHub adapter reconciles against an issue carrying the same hidden marker:
-
-```text
-<!-- human-led-agent-idempotency:<key> -->
-```
-
-The marker name is an internal compatibility artifact from the original lab and does not change the CorrelAct product identity.
-
-Only when neither PostgreSQL nor GitHub already contains that action does the adapter create a new issue. This protects against retries, concurrent same-key attempts, process restarts, and lost HTTP responses after GitHub accepted the write.
-
-## Run locally
+## Run it locally
 
 Start PostgreSQL:
 
@@ -207,7 +207,7 @@ pip install -r requirements.lock
 pip check
 ```
 
-Create `.env` locally from `.env.example`:
+Create `.env` from `.env.example`:
 
 ```text
 OPENAI_API_KEY=your_key_here
@@ -220,13 +220,9 @@ TASK_GITHUB_API_URL=https://api.github.com
 ENABLE_DEMO_USERS=false
 ```
 
-`TASK_GITHUB_TOKEN` should be a fine-grained GitHub token with Issues read/write access to the configured repository. Never commit a real token.
+`TASK_GITHUB_TOKEN` should be a fine-grained token with Issues read/write access to the configured repository only. Never commit a real token.
 
-### Optional demo identities
-
-Demo passwords are not embedded in deployable application code and demo accounts are disabled by default.
-
-To intentionally enable the reference identities, provide your own strong passwords:
+To enable the reference demo identities locally, set your own strong passwords (16+ characters):
 
 ```text
 ENABLE_DEMO_USERS=true
@@ -235,13 +231,7 @@ DEMO_NEPTUNE_PASSWORD=choose_a_strong_password_16_chars_or_more
 DEMO_ADMIN_PASSWORD=choose_a_strong_password_16_chars_or_more
 ```
 
-Reference grants:
-
-- `user@northstar.com` → NorthStar → ACME reference customer
-- `user@neptune.com` → Neptune → GreenMart reference customer
-- `admin@correlact.com` → NorthStar + Neptune
-
-When `ENABLE_DEMO_USERS=false`, startup does not create these accounts and removes current/legacy demo usernames from an existing database. When demo mode is enabled, passwords must be supplied through the canonical NorthStar/Neptune/Admin environment variables above and existing demo hashes are rotated to those configured values.
+This grants `user@northstar.com` → NorthStar/ACME, `user@neptune.com` → Neptune/GreenMart, and `admin@correlact.com` → both organizations. When demo mode is off, startup removes any existing demo accounts instead of creating them.
 
 Start CorrelAct:
 
@@ -249,120 +239,50 @@ Start CorrelAct:
 uvicorn agent_lab.api:app --reload
 ```
 
-Local surfaces:
-
-```text
-http://127.0.0.1:8000/                CorrelAct
-http://127.0.0.1:8000/investigation/  WebMCP Investigation workspace
-http://127.0.0.1:8000/support/        Support evidence workspace
-http://127.0.0.1:8000/crm/            CRM evidence workspace
-http://127.0.0.1:8000/billing/        Billing evidence workspace
-http://127.0.0.1:8000/tasks/          Approved execution workspace
-http://127.0.0.1:8000/docs            Swagger UI
-```
+| Surface | URL |
+| --- | --- |
+| CorrelAct | `http://127.0.0.1:8000/` |
+| Investigation workspace | `http://127.0.0.1:8000/investigation/` |
+| Support workspace | `http://127.0.0.1:8000/support/` |
+| CRM workspace | `http://127.0.0.1:8000/crm/` |
+| Billing workspace | `http://127.0.0.1:8000/billing/` |
+| Tasks workspace | `http://127.0.0.1:8000/tasks/` |
+| Swagger UI | `http://127.0.0.1:8000/docs` |
 
 ## API flow
 
-### 1. Health
+1. **`GET /health`** — no auth required.
+2. **`POST /auth/login`** with `{"username": "...", "password": "..."}` — the returned session identifies which organizations the account may access.
+3. **`POST /investigate`** with `{"tenant_id": "NorthStar", "issue": "..."}` — `tenant_id` must belong to the authenticated user or the request is rejected before the agent runs.
+4. **Human review** — `POST /runs/{run_id}/approve` or `/reject`. Approving does **not** create the GitHub task or mutate the CRM; it only records the decision and moves the run to `APPROVED`.
+5. **Execute** — the Tasks workspace's `create_task` or `update_crm_status` WebMCP tool. The backend independently verifies approval state, organization, customer, and idempotency before any external write.
+6. **Inspect** — `GET /runs/{run_id}`, or `GET /runs` with optional `status`/`tenant_id` filters, scoped to the authenticated organization.
 
-`GET /health` — no login required.
-
-### 2. Authenticate
-
-`POST /auth/login`
-
-```json
-{
-  "username": "user@northstar.com",
-  "password": "your_environment_supplied_password"
-}
-```
-
-The session identifies the organizations the account may access.
-
-### 3. Investigate
-
-`POST /investigate`
-
-```json
-{
-  "tenant_id": "NorthStar",
-  "issue": "ACME says their invoice amount is wrong and their renewal is blocked."
-}
-```
-
-`tenant_id` is the internal compatibility field for the organization identifier. It must belong to the authenticated user or the API rejects the request before the investigation runs.
-
-### 4. Human review
-
-Approve:
-
-`POST /runs/{run_id}/approve`
-
-Reject:
-
-`POST /runs/{run_id}/reject`
-
-**Approving a run does not create the GitHub task.** It only records the human decision and moves the run to `APPROVED`.
-
-### 5. Execute approved work
-
-The approved run can then be executed through the Tasks workspace / `create_task` WebMCP capability. The protected backend verifies approval state, organization, customer, and idempotency before any external write occurs.
-
-### 6. Inspect state
-
-`GET /runs/{run_id}`
-
-`GET /runs` supports optional `status` and `tenant_id` filters and only returns runs within the authenticated organization scope.
-
-## Customer data and MCP
-
-`agent_lab/mcp_server.py` defines the agent-facing `get_customer(customer_name, tenant_id)` capability. It opens a database session and delegates lookup to `agent_lab/customers.py`; it does not own customer records itself.
-
-The `customers` table stores organization ownership in the internal `tenant_id` column, normalized identity, plan, account status, renewal value/status, billing status, and timestamps. A unique `(tenant_id, normalized_name)` constraint prevents duplicate customer identities inside one organization while allowing the same customer name in separate organizations.
-
-ACME and GreenMart are reference records persisted in PostgreSQL rather than hardcoded MCP responses. ACME belongs to NorthStar; GreenMart belongs to Neptune.
-
-## Evaluation and CI
-
-The live AI suite covers operational judgment, approval policy, customer evidence, organization isolation, prompt/credential attacks, guardrail behavior, and invalid organizations. CI also runs deterministic unit/integration tests, builds the production container, and performs the public-release history audit.
-
-Run the live evaluation suite manually with:
+## Testing and CI
 
 ```powershell
-python evals/evals.py
+pytest                  # unit, integration, security, and UI-contract tests
+python evals/evals.py   # live 15-case AI quality-gate suite
+npx playwright test tests/browser --reporter=line   # browser/UI behavior
 ```
 
-Run deterministic tests with:
+CI (`.github/workflows/ci.yml`) runs, in order: a full git-history credential audit, the Docker production build, the pytest suite, an isolated database for the Playwright browser suite, and the live eval suite gated at a 98% pass threshold. Deployment (`.github/workflows/deploy-azure.yml`) only triggers after CI succeeds on `main`.
 
-```powershell
-pytest
+## Project layout
+
+```text
+agent_lab/          Application package: agent, API, workflow, DB, MCP, tools
+frontend/           CorrelAct UI and WebMCP browser workspaces
+evals/              Live AI quality-gate runner
+scripts/            Smoke tests and the public-release security audit
+tests/              Pytest unit/integration/security/UI contract tests
+docs/               Design notes, screenshots, and the judge testing guide
+.github/workflows/  CI and Azure deployment pipelines
+docker-compose.yml  Local PostgreSQL
+requirements.txt    Exact direct dependency pins
+requirements.lock   Fully resolved CI/deployment dependency snapshot
 ```
-
-## Dependency reproducibility
-
-Direct dependencies are pinned to exact versions in `requirements.txt`. CI and deployment use `requirements.lock`, which records the resolved Python 3.12 environment that passed tests and the live-eval gate.
-
-For the reproducible installation used by CI:
-
-```powershell
-pip install -r requirements.lock
-pip check
-```
-
-## CLI and MCP smoke test
-
-The original lab CLI remains available as a compatibility/development surface:
-
-```powershell
-python -m agent_lab.app
-python scripts/mcp_test.py
-```
-
-## Data storage
-
-Workflow runs, customer records, eval history, user accounts, organizations (stored in the legacy-named `tenants` table), organization settings, and successful write-tool executions are stored in PostgreSQL. `customers` is an investigation read source; `executed_actions` stores approved write results and GitHub reconciliation metadata.
 
 ## License
 
-CorrelAct is licensed under the MIT License. See `LICENSE`.
+CorrelAct is licensed under the MIT License. See [`LICENSE`](LICENSE).
