@@ -73,13 +73,9 @@ function applyCorrelActBranding() {
     const heading = qs(".page-head h1", actionsPage);
     const subtitle = qs(".page-head .subtitle", actionsPage);
     const search = qs("#ap-search", actionsPage);
-    const newButtonLabel = qs("#ap-new-btn span", actionsPage);
-    const newButton = qs("#ap-new-btn", actionsPage);
     if (heading) heading.textContent = "Actions";
     if (subtitle) subtitle.textContent = "Track, review, and progress evidence-grounded actions proposed by CorrelAct.";
     if (search) search.placeholder = "Search actions…";
-    if (newButtonLabel) newButtonLabel.textContent = "+ New Action";
-    if (newButton) newButton.title = "Actions are created by an investigation — see the Investigate workspace.";
   }
 
   const runsSearch = qs("#runs-search");
