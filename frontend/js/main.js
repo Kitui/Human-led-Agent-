@@ -231,14 +231,33 @@ function initTenantSelect() {
 function initAvatar() {
   const username = currentUsername() || "?";
   qs("#avatar-badge").textContent = username.slice(0, 2).toUpperCase();
+  qs("#avatar-menu-username").textContent = username;
+
   const wrap = qs("#avatar-wrap");
-  wrap.title = `Log out (${username})`;
-  wrap.addEventListener("click", logout);
+  const setOpen = (open) => {
+    wrap.classList.toggle("open", open);
+    wrap.setAttribute("aria-expanded", String(open));
+  };
+
+  wrap.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    setOpen(!wrap.classList.contains("open"));
+  });
+
   wrap.addEventListener("keydown", (e) => {
+    if (e.target !== wrap) return; // let the focused Log out button handle its own Enter/Space
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      logout();
+      setOpen(!wrap.classList.contains("open"));
+    } else if (e.key === "Escape") {
+      setOpen(false);
     }
+  });
+
+  qs("#logout-btn").addEventListener("click", logout);
+
+  document.addEventListener("click", (e) => {
+    if (!wrap.contains(e.target)) setOpen(false);
   });
 }
 

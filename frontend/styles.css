@@ -117,7 +117,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .icon-btn:hover { background: var(--neutral-bg); }
 .icon-btn svg { width: 19px; height: 19px; }
 
-.avatar-wrap { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.avatar-wrap { position: relative; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .avatar {
   width: 32px; height: 32px; border-radius: 50%;
   background: var(--primary-bg); color: var(--primary);
@@ -125,6 +125,38 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   font-weight: 700; font-size: 12.5px;
 }
 .avatar-wrap .chev { width: 14px; height: 14px; color: var(--text-secondary); }
+
+.avatar-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 20px rgba(16,24,40,0.10);
+  overflow: hidden;
+  z-index: 20;
+}
+.avatar-wrap.open .avatar-menu { display: block; }
+.avatar-menu-username {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.avatar-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; text-align: left;
+  padding: 9px 12px; background: none; border: none; cursor: pointer;
+  font-weight: 600; color: var(--danger);
+}
+.avatar-menu button:hover { background: var(--danger-bg); }
+.avatar-menu button svg { width: 16px; height: 16px; flex: none; }
 
 /* ---------- Body / Sidebar ---------- */
 .body { flex: 1; display: flex; min-height: 0; }
