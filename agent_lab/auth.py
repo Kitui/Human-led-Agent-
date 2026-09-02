@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -36,7 +37,16 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> A
     if user is None:
         return None
 
-    if not bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
+    # bcrypt is deliberately CPU-slow, and the container runs a single
+    # worker (see Dockerfile), so calling it synchronously here would block
+    # the whole event loop -- every other request, including /health -- for
+    # the duration of each login attempt. Offloading to a thread keeps a
+    # burst of concurrent logins (or wrong-password attempts) from stalling
+    # unrelated requests.
+    matches = await asyncio.to_thread(
+        bcrypt.checkpw, password.encode("utf-8"), user.password_hash.encode("utf-8")
+    )
+    if not matches:
         return None
 
     return AuthenticatedUser(username=user.username, tenant_ids=user.tenant_ids)

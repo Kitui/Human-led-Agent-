@@ -88,6 +88,42 @@ async def test_login_fails_with_unknown_username(client):
     assert response.status_code == 401
 
 
+async def test_authenticate_user_does_not_block_the_event_loop(db_session, monkeypatch):
+    """bcrypt.checkpw is deliberately CPU-slow, and the app runs a single
+    worker in production, so authenticate_user() must run it off the event
+    loop (asyncio.to_thread) rather than call it synchronously -- otherwise
+    one slow login attempt would stall every other concurrent request,
+    including unrelated users and the health check."""
+    import asyncio
+    import time
+
+    from agent_lab import auth as auth_module
+
+    def slow_checkpw(password: bytes, hashed: bytes) -> bool:
+        time.sleep(0.3)
+        return False
+
+    monkeypatch.setattr(auth_module.bcrypt, "checkpw", slow_checkpw)
+
+    heartbeat_ticks = 0
+
+    async def heartbeat():
+        nonlocal heartbeat_ticks
+        for _ in range(20):
+            await asyncio.sleep(0.01)
+            heartbeat_ticks += 1
+
+    await asyncio.gather(
+        auth_module.authenticate_user(db_session, "user@northstar.com", "wrong-password"),
+        heartbeat(),
+    )
+
+    # If checkpw blocked the event loop, the heartbeat couldn't tick at all
+    # during that 0.3s window -- it would only run once authenticate_user
+    # returned. A healthy handful of ticks proves the loop stayed responsive.
+    assert heartbeat_ticks >= 10
+
+
 async def test_investigate_requires_authentication(client):
     response = await client.post(
         "/investigate",
