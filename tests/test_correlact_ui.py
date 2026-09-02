@@ -38,6 +38,34 @@ def test_main_app_applies_correlact_branding_and_shared_ui_layer():
         assert f'id=\"{selector_id}\"' in login_source
 
 
+def test_runs_page_more_statuses_dropdown_registers_close_listener_once():
+    """renderStatusChips() re-runs on every visit to the Runs page. It used to
+    end with document.addEventListener("click", ..., { once: true }) closing
+    over that render's #runs-more-wrap node -- each revisit added a brand new
+    permanent-until-fired listener referencing an increasingly stale node.
+    Fixed by registering a single module-level listener that looks up the
+    live #runs-more-wrap at click time instead."""
+    source = (FRONTEND / "js" / "runs.js").read_text(encoding="utf-8")
+
+    assert source.count('document.addEventListener("click"') == 1
+    assert "{ once: true }" not in source
+    assert 'const moreWrap = qs("#runs-more-wrap");' in source
+
+
+def test_approve_button_reverts_optimistic_stepper_state_on_failure():
+    """doApprove() renders the stepper as "approved" before the API call
+    returns (optimistic UI). doInvestigate()'s equivalent catch block already
+    reverts the stepper on failure (renderStepper("new")); doApprove()'s did
+    not, so a failed approval (network error, expired session, backend
+    rejection) left the UI falsely showing APPROVED."""
+    source = (FRONTEND / "js" / "investigate.js").read_text(encoding="utf-8")
+    assert "qsa" not in source  # dead import removed; nothing in this file calls it
+
+    approve_fn = source.split("async function doApprove(runId) {", 1)[1].split("\nasync function doReject", 1)[0]
+    assert 'renderStepper("awaiting_approval")' in approve_fn
+    assert "showBanner(`Approval failed" in approve_fn
+
+
 def test_investigation_workflow_labels_are_human_readable():
     source = (FRONTEND / "js" / "investigate.js").read_text(encoding="utf-8")
     assert 'label: "AWAITING APPROVAL"' in source
@@ -72,6 +100,61 @@ def test_main_app_shell_source_has_no_stale_branding_or_legacy_terminology():
     assert "<th>Organization</th>" in index_source
     assert '<span class="filter-label">Organization</span>' in index_source
     assert "All Organizations" in action_points_source
+
+
+def test_topbar_dropdowns_are_keyboard_operable():
+    """The organization switcher and avatar/logout control were plain click
+    targets with no role, tabindex, or keydown handling -- not operable from
+    the keyboard."""
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    main_source = (FRONTEND / "js" / "main.js").read_text(encoding="utf-8")
+
+    assert 'id="tenant-select" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false"' in index_source
+    assert 'id="avatar-wrap" role="button" tabindex="0"' in index_source
+    assert 'wrap.setAttribute("aria-expanded", String(open));' in main_source
+    assert 'e.key === "Enter" || e.key === " "' in main_source
+    assert 'e.key === "Escape"' in main_source
+
+
+def test_remaining_run_detail_views_use_organization_not_tenant_label():
+    """settings.js, dashboard.js, and the Actions page filter already said
+    "Organization"; runs.js's table header/detail panel, traces.js's detail
+    panel, and action-points.js's kanban card/detail panel still rendered a
+    visible "Tenant" label for the identical field."""
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    runs_source = (FRONTEND / "js" / "runs.js").read_text(encoding="utf-8")
+    traces_source = (FRONTEND / "js" / "traces.js").read_text(encoding="utf-8")
+    action_points_source = (FRONTEND / "js" / "action-points.js").read_text(encoding="utf-8")
+
+    assert "<h2>Organization Management</h2>" in index_source
+    assert "<th>Run ID</th><th>Organization</th>" in runs_source
+    assert '<span class="d-label">Organization</span>' in runs_source
+    assert '<span class="d-label">Organization</span>' in traces_source
+    assert "Organization: ${escapeHtml(run.tenant_id)}" in action_points_source
+    assert '<span class="label">Organization</span><span class="value">${escapeHtml(run.tenant_id)}' in action_points_source
+
+
+def test_organization_dropdowns_escape_tenant_ids_consistently():
+    """tasks.js and action-points.js already escaped organization ids before
+    interpolating them into innerHTML; main.js's topbar switcher and the
+    billing/crm/support/investigation workspace bootstrap dropdowns did not,
+    breaking the app-wide escaping convention even though real organization
+    ids aren't attacker-controlled today."""
+    main_source = (FRONTEND / "js" / "main.js").read_text(encoding="utf-8")
+    assert 'data-tenant="${escapeHtml(t)}">${escapeHtml(t)}' in main_source
+
+    for name in ("billing.js", "crm.js", "support.js", "investigation.js"):
+        source = (FRONTEND / "js" / name).read_text(encoding="utf-8")
+        assert 'value="${escapeHtml(tenantId)}">${escapeHtml(tenantId)}' in source
+
+
+def test_frontend_module_header_comments_use_correlact_branding():
+    """These five files' file-header comments still said "Human-Led Agent
+    Lab" -- the old product name -- even after the rest of the rebrand."""
+    for name in ("shared.js", "action-points.js", "approvals.js", "runs.js", "traces.js"):
+        source = (FRONTEND / "js" / name).read_text(encoding="utf-8")
+        assert "Human-Led Agent Lab" not in source
+        assert "CorrelAct" in source.splitlines()[0]
 
 
 def test_public_facing_pages_use_organization_not_tenant_terminology():

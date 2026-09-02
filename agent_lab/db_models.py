@@ -90,9 +90,8 @@ class EvalSuiteRunORM(Base):
 
 
 class UserORM(Base):
-    """Shape matches what the separate, not-yet-built auth.py will need.
-    No Pydantic counterpart in models.py -- never returned to API callers
-    directly."""
+    """Backs auth.py's authenticate_user()/get_current_user(). No Pydantic
+    counterpart in models.py -- never returned to API callers directly."""
 
     __tablename__ = "users"
 

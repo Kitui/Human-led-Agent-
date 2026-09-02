@@ -5,14 +5,8 @@
  * evidence where possible, while access-sensitive organization controls are
  * rendered according to the signed-in user's scope.
  */
-import { qs, qsa, escapeHtml, fmtTime, api, showBanner } from "./shared.js";
+import { qs, qsa, escapeHtml, fmtTime, api, showBanner, isPlatformAdmin } from "./shared.js";
 import { currentTenantIds, currentUsername } from "./auth.js";
-
-const PLATFORM_ADMIN_USERNAME = "admin@correlact.com";
-
-function isPlatformAdmin() {
-  return (currentUsername() || "").toLowerCase() === PLATFORM_ADMIN_USERNAME;
-}
 
 function healthBadge(kind, label) {
   return `<span class="health-badge ${kind}"><span class="dot"></span>${escapeHtml(label)}</span>`;

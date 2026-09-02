@@ -20,7 +20,7 @@
  */
 import {
   qs, qsa, escapeHtml, fmtTime, deltaFromYesterdayHtml, cssVar, api, showBanner,
-  showConfirmModal, getAuthSession,
+  showConfirmModal, isPlatformAdmin,
 } from "./shared.js";
 
 let evalsChartInstance = null;
@@ -28,7 +28,6 @@ let categoryChartInstance = null;
 let realCategoryChartInstance = null;
 
 const EVALS_SUITES_PAGE_SIZE = 7;
-const PLATFORM_ADMIN_USERNAME = "admin@correlact.com";
 let evalsSuitesPage = 1;
 let currentEvalsRuns = [];
 
@@ -40,15 +39,10 @@ async function fetchEvalRuns() {
   }
 }
 
-function canRunLiveEvals() {
-  const username = getAuthSession()?.username || "";
-  return username.trim().toLowerCase() === PLATFORM_ADMIN_USERNAME;
-}
-
 function configureEvalRunButton() {
   const btn = qs("#evals-run-btn");
   if (!btn) return;
-  if (canRunLiveEvals()) {
+  if (isPlatformAdmin()) {
     btn.disabled = false;
     btn.title = "Run the live 15-case evaluation suite";
     btn.onclick = triggerEvalRun;
@@ -475,7 +469,7 @@ function renderFailedCases(runs) {
 }
 
 async function triggerEvalRun() {
-  if (!canRunLiveEvals()) {
+  if (!isPlatformAdmin()) {
     showBanner("Platform administrator access is required to run live evaluations.");
     return;
   }

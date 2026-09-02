@@ -1,6 +1,6 @@
 /* CorrelAct — Investigate workspace */
 import {
-  qs, qsa, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge,
+  qs, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge,
   traceIconClass, traceIconSvg, api, showBanner, loadHistory, upsertHistory,
   addClientTraceEvent, bindRunLinks,
 } from "./shared.js";
@@ -224,6 +224,7 @@ async function doApprove(runId) {
     upsertHistory(merged);
     applyRunToInvestigateView(merged);
   } catch (err) {
+    renderStepper("awaiting_approval");
     showBanner(`Approval failed: ${err.message}`);
   }
 }

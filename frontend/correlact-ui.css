@@ -433,8 +433,7 @@ textarea {
   flex-wrap: wrap;
 }
 
-.topbar-actions a,
-.back-link {
+.topbar-actions a {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
@@ -446,8 +445,7 @@ textarea {
   font-weight: 700;
 }
 
-.topbar-actions a:hover,
-.back-link:hover {
+.topbar-actions a:hover {
   color: var(--ca-primary);
   background: var(--ca-primary-soft);
 }
@@ -881,8 +879,7 @@ textarea {
     display: none;
   }
 
-  .topbar-actions a,
-  .back-link {
+  .topbar-actions a {
     flex: none;
     background: var(--ca-surface-muted);
   }

@@ -1,5 +1,5 @@
 /* CorrelAct — entry point: routing, navigation, branding, and boot */
-import { qs, qsa, checkHealth, clearHistory } from "./shared.js";
+import { qs, qsa, checkHealth, clearHistory, escapeHtml } from "./shared.js";
 import { renderInvestigatePage, renderStepper, doInvestigate } from "./investigate.js";
 import { renderActionPointsPage } from "./action-points.js";
 import { renderRunsPage } from "./runs.js";
@@ -179,13 +179,28 @@ function initTenantSelect() {
   const tenants = currentTenantIds();
   const selected = rememberedOrganization(tenants);
 
-  menu.innerHTML = tenants.map((t) => `<button data-tenant="${t}">${t}</button>`).join("");
+  menu.innerHTML = tenants.map((t) => `<button data-tenant="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join("");
   qs("#tenant-select-label").textContent = selected;
   document.documentElement.dataset.correlactOrganization = selected;
 
+  const setOpen = (open) => {
+    wrap.classList.toggle("open", open);
+    wrap.setAttribute("aria-expanded", String(open));
+  };
+
   wrap.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
-    wrap.classList.toggle("open");
+    setOpen(!wrap.classList.contains("open"));
+  });
+
+  wrap.addEventListener("keydown", (e) => {
+    if (e.target !== wrap) return; // let focused menu buttons handle their own Enter/Space
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen(!wrap.classList.contains("open"));
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
   });
 
   qsa("button", menu).forEach((btn) => {
@@ -195,7 +210,7 @@ function initTenantSelect() {
       qs("#tenant-select-label").textContent = next;
       document.documentElement.dataset.correlactOrganization = next;
       rememberOrganization(next);
-      wrap.classList.remove("open");
+      setOpen(false);
 
       if (next !== previous) {
         /* The local history is only an optimistic cache. Server state remains
@@ -208,7 +223,7 @@ function initTenantSelect() {
   });
 
   document.addEventListener("click", (e) => {
-    if (!wrap.contains(e.target)) wrap.classList.remove("open");
+    if (!wrap.contains(e.target)) setOpen(false);
   });
 }
 
@@ -219,6 +234,12 @@ function initAvatar() {
   const wrap = qs("#avatar-wrap");
   wrap.title = `Log out (${username})`;
   wrap.addEventListener("click", logout);
+  wrap.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      logout();
+    }
+  });
 }
 
 /* ---------------- misc UI wiring ---------------- */

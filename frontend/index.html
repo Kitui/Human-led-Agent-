@@ -54,7 +54,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3"/><path d="M8.5 14h7"/></svg>
       </div>
       <span class="brand">CorrelAct</span>
-      <div class="tenant-select" id="tenant-select">
+      <div class="tenant-select" id="tenant-select" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
         <span id="tenant-select-label">—</span>
         <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         <div class="tenant-menu" id="tenant-menu"></div>
@@ -71,7 +71,7 @@
       <button class="icon-btn" title="Notifications">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/></svg>
       </button>
-      <div class="avatar-wrap" id="avatar-wrap">
+      <div class="avatar-wrap" id="avatar-wrap" role="button" tabindex="0">
         <span class="avatar" id="avatar-badge">SK</span>
         <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
       </div>
@@ -701,7 +701,7 @@
 
           <div class="card" id="settings-section-tenants">
             <div class="card-head">
-              <h2>Tenant Management</h2>
+              <h2>Organization Management</h2>
               <button class="btn btn-primary" id="add-tenant-btn">+ Add Organization</button>
             </div>
             <div class="table-scroll">

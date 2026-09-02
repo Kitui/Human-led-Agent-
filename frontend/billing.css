@@ -23,8 +23,6 @@ body { margin: 0; background: #f5f7fb; }
 .eyebrow { margin: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #7b879d; font-weight: 700; }
 .workspace-topbar .eyebrow { color: #95a3bb; }
 .topbar-actions { display: flex; align-items: center; gap: 18px; }
-.back-link { color: #dbe6f8; text-decoration: none; font-size: 13px; font-weight: 700; }
-.back-link:hover { color: #fff; }
 
 .workspace-shell { max-width: 1120px; margin: 0 auto; padding: 34px 24px 60px; }
 .intro-card, .card {

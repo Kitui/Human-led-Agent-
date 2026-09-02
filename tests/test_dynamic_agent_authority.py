@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -113,7 +115,7 @@ def test_investigation_escapes_backend_evidence_before_rendering():
 def test_dynamic_authority_javascript_parses():
     node = shutil.which("node")
     if node is None:
-        return
+        pytest.skip("node is not installed")
 
     for path in (
         JS / "investigation.js",

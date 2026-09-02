@@ -230,7 +230,7 @@ async function init() {
   }
 
   tenantSelect.innerHTML = session.tenantIds
-    .map((tenantId) => `<option value="${tenantId}">${tenantId}</option>`)
+    .map((tenantId) => `<option value="${escapeHtml(tenantId)}">${escapeHtml(tenantId)}</option>`)
     .join("");
 
   try {

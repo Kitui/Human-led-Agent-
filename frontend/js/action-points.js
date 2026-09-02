@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — Action Points page: a kanban board of the action
+/* CorrelAct — Action Points page: a kanban board of the action
  * points investigations have produced, grouped by real status.
  *
  * The mockup this page is built from has five columns (Drafted, Awaiting
@@ -200,7 +200,7 @@ function renderActionPointCard(run, columnTag) {
     <div class="kanban-card" data-run-id="${escapeHtml(run.run_id)}">
       <div class="kanban-card-title">${escapeHtml(ap.title)}</div>
       <div class="kanban-card-meta">${priorityBadge(ap.priority)} <span class="badge badge-confidence">Conf: ${ap.confidence.toFixed(2)}</span></div>
-      <div class="kanban-card-meta">Tenant: ${escapeHtml(run.tenant_id)}</div>
+      <div class="kanban-card-meta">Organization: ${escapeHtml(run.tenant_id)}</div>
       <div class="kanban-card-meta">Run: ${escapeHtml(shortRunId(run.run_id))}</div>
       <div class="kanban-card-meta">Created: ${fmtTime(run.created_at)}</div>
       <div class="kanban-card-tags">
@@ -288,7 +288,7 @@ function renderDetailPanel() {
         <div class="ap-field"><span class="label">Confidence</span><span class="value"><span class="badge badge-confidence">${ap.confidence.toFixed(2)}</span></span></div>
         <div class="ap-field"><span class="label">Requires Human Approval</span><span class="value"><span class="badge ${ap.requires_human_approval ? "badge-yes" : "badge-no"}">${ap.requires_human_approval ? "Yes" : "No"}</span></span></div>
         <div class="ap-field"><span class="label">Priority</span><span class="value">${priorityBadge(ap.priority)}</span></div>
-        <div class="ap-field"><span class="label">Tenant</span><span class="value">${escapeHtml(run.tenant_id)}</span></div>
+        <div class="ap-field"><span class="label">Organization</span><span class="value">${escapeHtml(run.tenant_id)}</span></div>
         <div class="ap-field"><span class="label">Created</span><span class="value">${fmtTime(run.created_at)}</span></div>
         <div class="ap-field"><span class="label">Run ID</span><span class="value">${escapeHtml(shortRunId(run.run_id))}</span></div>
       </div>

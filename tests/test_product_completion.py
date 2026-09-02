@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend" / "js"
@@ -41,7 +43,7 @@ def test_quality_gate_is_strict_98_percent():
 def test_product_completion_javascript_parses():
     node = shutil.which("node")
     if node is None:
-        return
+        pytest.skip("node is not installed")
 
     for filename in ("dashboard.js", "settings.js"):
         subprocess.run(

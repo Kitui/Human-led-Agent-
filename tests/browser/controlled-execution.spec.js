@@ -1,3 +1,14 @@
+/* This spec permanently mutates ACME's real renewal_status (blocked ->
+ * escalation_open) via a real HTTP write against the running app -- there is
+ * no reverse transition in ALLOWED_CRM_TRANSITIONS (see
+ * agent_lab/crm_actions.py), so nothing in this file can reset it back
+ * afterward without adding backend surface that only exists for test
+ * convenience. CI is unaffected: it creates a fresh isolated database for
+ * every run (see .github/workflows/ci.yml), so ACME always starts "blocked"
+ * there. Running this file locally a second time against a database that
+ * already has ACME at "escalation_open" will fail the first assertion below
+ * -- recreate the local database (or reseed default_customers) before
+ * re-running it. */
 import { test, expect } from "@playwright/test";
 
 const BASE_URL = process.env.CORRELACT_BASE_URL || "http://127.0.0.1:8000";

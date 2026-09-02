@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — Runs page: filter / sort / paginate / detail */
+/* CorrelAct — Runs page: filter / sort / paginate / detail */
 import {
   qs, qsa, escapeHtml, fmtTime, shortRunId, priorityBadge, statusBadge,
   titleCase, slugify, STATUS_COLORS, formatDateInput, apiVersion,
@@ -168,10 +168,17 @@ function renderStatusChips() {
       renderRunsPageBody();
     });
   });
-  document.addEventListener("click", (e) => {
-    if (!moreWrap.contains(e.target)) moreWrap.classList.remove("open");
-  }, { once: true });
 }
+
+// Registered once at module load rather than once per renderStatusChips()
+// call (the Runs page re-renders on every visit): looks up the current
+// #runs-more-wrap live instead of closing over a specific render's node, so
+// this single listener keeps working correctly across re-renders instead of
+// each visit silently accumulating its own document-level listener.
+document.addEventListener("click", (e) => {
+  const moreWrap = qs("#runs-more-wrap");
+  if (moreWrap && !moreWrap.contains(e.target)) moreWrap.classList.remove("open");
+});
 
 function runsFullTableHtml(pageRuns) {
   if (pageRuns.length === 0) {
@@ -201,7 +208,7 @@ function runsFullTableHtml(pageRuns) {
       <table>
         <thead>
           <tr>
-            <th>Run ID</th><th>Tenant</th><th>Status</th><th>Priority</th><th>Issue Summary</th>
+            <th>Run ID</th><th>Organization</th><th>Status</th><th>Priority</th><th>Issue Summary</th>
             <th><span class="sortable-th" id="runs-sort-created">Created At ${sortArrow}</span></th>
             <th>Updated At</th><th>Duration</th><th>Actions</th>
           </tr>
@@ -295,7 +302,7 @@ function renderRunDetailPanel() {
 
     <div class="detail-section" style="margin-top:0;padding-top:0;border-top:none;">
       <div class="detail-section-title">Run Details</div>
-      <div class="detail-field-row"><span class="d-label">Tenant</span><span class="d-value">${escapeHtml(run.tenant_id)}</span></div>
+      <div class="detail-field-row"><span class="d-label">Organization</span><span class="d-value">${escapeHtml(run.tenant_id)}</span></div>
       <div class="detail-field-row"><span class="d-label">Workflow</span><span class="d-value" style="font-family:monospace;font-size:11.5px;">${ap ? escapeHtml(slugify(ap.title)) : "—"}</span></div>
       <div class="detail-field-row"><span class="d-label">Created At</span><span class="d-value">${run.created_at ? fmtTime(run.created_at) : "—"}</span></div>
       <div class="detail-field-row"><span class="d-label">Updated At</span><span class="d-value">${run.updated_at ? fmtTime(run.updated_at) : "—"}</span></div>

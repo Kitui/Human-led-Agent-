@@ -1,4 +1,4 @@
-/* Human-Led Agent Lab — Traces page
+/* CorrelAct — Traces page
  *
  * The Execution Timeline is built entirely from real `run.trace` events —
  * paired MCP "X called" / "X result received" events are merged into one
@@ -351,7 +351,7 @@ function renderTraceDetail(run) {
       <div class="trace-tab-panel" data-tab-panel="metadata">
         <div class="trace-metadata-grid">
           <div class="detail-field-row"><span class="d-label">Run ID</span><span class="d-value" style="font-family:monospace;font-size:11.5px;">${escapeHtml(run.run_id)}</span></div>
-          <div class="detail-field-row"><span class="d-label">Tenant</span><span class="d-value">${escapeHtml(run.tenant_id)}</span></div>
+          <div class="detail-field-row"><span class="d-label">Organization</span><span class="d-value">${escapeHtml(run.tenant_id)}</span></div>
           <div class="detail-field-row"><span class="d-label">Agent</span><span class="d-value">${escapeHtml(AGENT_NAME)}</span></div>
           <div class="detail-field-row"><span class="d-label">API Version</span><span class="d-value">${apiVersion ? escapeHtml(apiVersion) : "—"}</span></div>
           <div class="detail-field-row"><span class="d-label">Workflow Step</span><span class="d-value">${run.step_count} / ${run.max_steps}</span></div>

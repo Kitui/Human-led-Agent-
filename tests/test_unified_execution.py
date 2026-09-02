@@ -143,8 +143,8 @@ async def test_main_investigate_approved_run_uses_same_customer_boundary_and_tas
                 "provider": "github",
                 "task_id": "GH-200",
                 "issue_number": 200,
-                "issue_url": "https://github.com/Kitui/Human-led-Agent-/issues/200",
-                "repository": "Kitui/Human-led-Agent-",
+                "issue_url": "https://github.com/example/tasks/issues/200",
+                "repository": "example/tasks",
                 "customer": kwargs["customer_name"],
                 "team": kwargs["team"],
                 "priority": kwargs["priority"],
@@ -202,5 +202,9 @@ def test_main_investigate_frontend_routes_approved_runs_to_tasks_workspace():
     assert "Open Tasks Workspace" in investigate_source
 
     assert "renderRuns(runs)" in tasks_source
-    assert "Human-approved Correlact Action Points" not in tasks_source
+    # Real current empty-state copy, not a hardcoded case, must actually be
+    # present. A prior version of this assertion checked the ABSENCE of a
+    # differently-cased string that was never the real text in the first
+    # place, so it could never have caught a regression.
+    assert "No approved Action Points are waiting for controlled execution." in tasks_source
     assert "const webmcpRuns = runs.filter" not in tasks_source

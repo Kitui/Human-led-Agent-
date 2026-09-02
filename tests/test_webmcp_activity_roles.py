@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 JS = FRONTEND / "js"
@@ -60,7 +62,7 @@ def test_evidence_citation_events_appear_as_their_own_timeline_step():
 def test_traces_javascript_parses():
     node = shutil.which("node")
     if node is None:
-        return
+        pytest.skip("node is not installed")
     subprocess.run(
         [node, "--check", str(JS / "traces.js")],
         check=True,

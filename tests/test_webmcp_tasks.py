@@ -171,6 +171,35 @@ async def test_webmcp_create_task_enforces_customer_evidence_boundary(
     assert "does not match the CRM evidence" in response.json()["detail"]
 
 
+async def test_webmcp_create_task_rejects_cross_organization_execution(
+    client,
+    auth_headers,
+):
+    """update_crm_status has a direct test for this (see
+    test_second_controlled_execution.py); create_task did not, despite both
+    controlled-execution tools being independently backend-enforced."""
+    northstar = await auth_headers("user@northstar.com", "northstar-test-pass")
+    submitted = await _submit_webmcp_action_point(client, northstar)
+    await client.post(
+        f"/runs/{submitted['run_id']}/approve",
+        json={},
+        headers=northstar,
+    )
+
+    neptune = await auth_headers("user@neptune.com", "neptune-test-pass")
+    response = await client.post(
+        "/webmcp/tasks",
+        json={
+            "run_id": submitted["run_id"],
+            "tenant_id": "NorthStar",
+            "customer_name": "ACME",
+        },
+        headers=neptune,
+    )
+
+    assert response.status_code == 403
+
+
 async def test_webmcp_create_task_executes_approved_scope_once(
     client,
     auth_headers,
@@ -196,8 +225,8 @@ async def test_webmcp_create_task_executes_approved_scope_once(
                 "provider": "github",
                 "task_id": "GH-101",
                 "issue_number": 101,
-                "issue_url": "https://github.com/Kitui/Human-led-Agent-/issues/101",
-                "repository": "Kitui/Human-led-Agent-",
+                "issue_url": "https://github.com/example/tasks/issues/101",
+                "repository": "example/tasks",
                 "customer": kwargs["customer_name"],
                 "team": kwargs["team"],
                 "priority": kwargs["priority"],
