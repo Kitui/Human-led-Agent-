@@ -131,7 +131,7 @@ function renderVolumeChart(runs) {
   const primary = cssVar("--primary", "#2563EB");
   const primaryBg = cssVar("--primary-bg", "#EFF6FF");
   const border = cssVar("--border", "#E5E7EB");
-  const textFaint = cssVar("--text-faint", "#9CA3AF");
+  const textFaint = cssVar("--text-faint", "#6B7686");
 
   volumeChartInstance = new Chart(ctx, {
     type: "line",
@@ -202,7 +202,7 @@ function renderStatusDonut(runs) {
   `).join("");
 
   const textColor = cssVar("--text", "#111827");
-  const textFaint = cssVar("--text-faint", "#9CA3AF");
+  const textFaint = cssVar("--text-faint", "#6B7686");
   const surface = cssVar("--surface", "#fff");
   const fontFamily = getComputedStyle(document.body).fontFamily;
 

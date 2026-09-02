@@ -17,9 +17,16 @@ def test_main_app_applies_correlact_branding_and_shared_ui_layer():
     assert 'brand.textContent = ""' in main_source
     assert 'brand.setAttribute("aria-hidden", "true")' in main_source
     assert 'logo.innerHTML = \'<img src="/assets/correlact-logo.png?v=20260901d"' in main_source
-    assert 'link.href = "/correlact-ui.css"' in main_source
-    assert 'link.href = "/correlact-theme.css"' in main_source
     assert 'actionsNav.textContent = "Actions"' in main_source
+
+    # These design-system layers are loaded as static <head> links (not
+    # injected by main.js at runtime) so the browser requests them
+    # immediately; login-view.js's revealStableLogin() finds them by these
+    # same data attributes and waits for each to load before showing the
+    # login screen.
+    assert 'href="/correlact-ui.css" data-correlact-ui="true"' in index_source
+    assert 'href="/correlact-layout.css" data-correlact-layout="true"' in index_source
+    assert 'href="/correlact-theme.css" data-correlact-theme="true"' in index_source
 
     # The secured product now uses the intentional navy/red CorrelAct palette.
     assert "--ca-bg: #06111f" in theme_source

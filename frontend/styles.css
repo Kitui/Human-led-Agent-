@@ -4,7 +4,7 @@
   --border: #E5E7EB;
   --text: #111827;
   --text-secondary: #6B7280;
-  --text-faint: #9CA3AF;
+  --text-faint: #6B7686; /* WCAG AA: 4.6:1 against --surface #FFFFFF (was #9CA3AF at 2.5:1) */
 
   --primary: #2563EB;
   --primary-hover: #1D4ED8;

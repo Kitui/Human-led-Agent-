@@ -24,7 +24,7 @@ async def test_login_sets_shared_browser_cookie(client):
     )
 
     cookie = response.headers.get("set-cookie", "")
-    assert "hlal_session=" in cookie
+    assert "correlact_session=" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=lax" in cookie
     assert "Path=/" in cookie
