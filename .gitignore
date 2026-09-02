@@ -40,3 +40,7 @@ playwright-report/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local development history: dated per-PR engineering notes, kept for
+# personal reference but not part of the public submission's docs.
+docs/dev-log/

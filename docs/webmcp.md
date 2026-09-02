@@ -1,22 +1,31 @@
 # WebMCP Implementation Notes
 
-## Step 10.1 — CRM `get_customer`
+CorrelAct exposes six WebMCP tools across five browser workspaces. This page is the index; each tool has its own implementation note with the exact registration code, reference data, and the demo scenario it supports.
 
-### What we implemented
+| Tool | Kind | Workspace | Note |
+| --- | --- | --- | --- |
+| `get_case` | Read | Support | [`docs/webmcp-support.md`](webmcp-support.md) |
+| `get_customer` | Read | CRM | this page |
+| `get_invoice` | Read | Billing | [`docs/webmcp-billing.md`](webmcp-billing.md) |
+| `submit_action_point` | Propose | Investigation | [`docs/webmcp-investigation.md`](webmcp-investigation.md) |
+| `create_task` | Constrained write | Tasks | [`docs/webmcp-tasks.md`](webmcp-tasks.md) |
+| `update_crm_status` | Constrained write | Tasks | [`docs/webmcp-tasks.md`](webmcp-tasks.md) |
 
-A read-only CRM workspace that exposes `get_customer` as a WebMCP tool.
+For how the two write tools share one human-approval gate, see [`docs/unified-controlled-execution.md`](unified-controlled-execution.md). For the full judge test protocol, see [`docs/judge-testing.md`](judge-testing.md).
+
+## `get_customer` — the first tool
+
+CRM was the first WebMCP-enabled workspace built for this challenge, and its registration is the simplest illustration of the pattern every other tool follows.
 
 ### Where it is implemented
 
 - `frontend/crm/index.html` — human-facing CRM workspace.
 - `frontend/js/webmcp/crm-tools.js` — WebMCP registration and execution code.
-- `frontend/js/crm.js` — normal human search UI.
-- `agent_lab/api.py` — authenticated CRM read endpoint.
-- `tests/test_api.py` — auth and tenant-isolation coverage.
+- `frontend/js/crm.js` — the ordinary human search UI.
+- `agent_lab/api.py` — the authenticated CRM read endpoint.
+- `tests/test_api.py` — auth and organization-isolation coverage.
 
 ### The line that makes it WebMCP
-
-The key implementation is:
 
 ```javascript
 await document.modelContext.registerTool({
@@ -25,16 +34,14 @@ await document.modelContext.registerTool({
 });
 ```
 
-That tells a WebMCP-aware browser that this website has a structured tool named `get_customer`.
+That tells a WebMCP-capable browser that this page exposes a structured tool named `get_customer`.
 
 ### What the tool does
 
-The agent supplies `customer_name` and `tenant_id`. The page calls the same secured FastAPI endpoint used by the human CRM search, and the backend reads the existing PostgreSQL customer data through `lookup_customer`.
-
-WebMCP does not bypass authentication or tenancy. The user must already be signed in and the backend remains the final authorization boundary.
+The agent supplies `customer_name` and `tenant_id`. The page calls the same secured FastAPI endpoint the human CRM search uses, and the backend reads real PostgreSQL customer data. WebMCP does not bypass authentication or organization scope — the user must already be signed in, and the backend remains the final authorization boundary regardless of what the browser claims.
 
 ### Why this matters
 
-Without WebMCP, an agent would need to inspect the CRM page, locate the search input, type the customer, submit the form, and read the result from the rendered UI. With WebMCP, the agent can call `get_customer` directly.
+Without WebMCP, an agent would need to open the CRM page, locate the search input, type the customer name, submit the form, and parse the result out of rendered HTML. With WebMCP, the agent calls `get_customer` directly and gets structured data back.
 
-This first tool is intentionally read-only. Consequential write tools will be added later behind the human-approval boundary.
+This tool is intentionally read-only. The two consequential write tools (`create_task`, `update_crm_status`) live behind the human-approval boundary described in [`docs/unified-controlled-execution.md`](unified-controlled-execution.md).

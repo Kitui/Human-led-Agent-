@@ -30,7 +30,7 @@ This tells a WebMCP-aware browser that the Support page exposes a structured cus
 
 ## Reference scenario
 
-For `ACME` in `tenant_red`, Support provides the customer-reported symptom:
+For `ACME` in the **NorthStar** organization, Support provides the customer-reported symptom:
 
 - case: `CASE-ACME-8841`
 - priority: high
@@ -44,6 +44,6 @@ The intended investigation chain is now:
 1. Support `get_case` establishes what ACME reported.
 2. CRM `get_customer` confirms the account is active, billing is in invoice dispute, and renewal is blocked.
 3. Billing `get_invoice` identifies the USD 6,000 invoice variance, open dispute, and renewal hold.
-4. Correlact correlates the three evidence sources before proposing an Action Point.
+4. CorrelAct correlates the three evidence sources before proposing an action via `submit_action_point`.
 
-The Support dataset is a deterministic challenge reference dataset, not a production support-system integration.
+The Support dataset is a deterministic reference dataset (see `frontend/js/webmcp/support-tools.js`) — there is no `/support/*` backend route or database table behind it, unlike CRM. It is not presented as a production support-system integration.

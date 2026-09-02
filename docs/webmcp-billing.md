@@ -31,7 +31,7 @@ This tells a WebMCP-aware browser that the Billing page exposes a structured inv
 
 ## Reference scenario
 
-For `ACME` in `tenant_red`, the Billing workspace provides challenge reference evidence showing:
+For `ACME` in the **NorthStar** organization, the Billing workspace provides reference evidence showing:
 
 - contract amount: USD 120,000
 - billed amount: USD 126,000
@@ -44,6 +44,6 @@ The intended cross-workspace demo is:
 
 1. CRM `get_customer` establishes that ACME is active, its renewal is blocked, and billing is in invoice dispute.
 2. Billing `get_invoice` explains the underlying invoice discrepancy and renewal hold.
-3. The agent correlates both sources before proposing an Action Point.
+3. The agent correlates both sources before proposing an action via `submit_action_point`.
 
-The Billing dataset is explicitly a deterministic challenge reference dataset. It is not presented as a production billing integration.
+The Billing dataset is explicitly a deterministic reference dataset (see `frontend/js/webmcp/billing-tools.js`) — there is no `/billing/*` backend route or database table behind it, unlike CRM. It is not presented as a production billing integration.
