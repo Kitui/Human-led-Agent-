@@ -654,8 +654,7 @@ textarea {
     max-width: 130px;
   }
 
-  .status-pill,
-  .topbar-right > .icon-btn {
+  .status-pill {
     display: none;
   }
 

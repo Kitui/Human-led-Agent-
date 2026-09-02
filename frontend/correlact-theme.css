@@ -84,6 +84,13 @@ body {
 .tenant-menu button { color: #dbe4ee; }
 .tenant-menu button:hover { background: rgba(239, 43, 50, 0.1); color: #fff; }
 
+.avatar-menu {
+  background: #0d1a2c;
+  border-color: #2a3d55;
+  box-shadow: 0 16px 34px rgba(0,0,0,.34);
+}
+.avatar-menu-username { border-color: #2a3d55; }
+
 .sidebar {
   background: #081625;
   border-color: var(--ca-border);

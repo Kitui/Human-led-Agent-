@@ -2,9 +2,9 @@
 
 /* Use the stable CorrelAct artwork everywhere the product mark is visible. */
 .topbar .logo {
-  width: 112px !important;
-  height: 58px !important;
-  flex: 0 0 112px !important;
+  width: 78px !important;
+  height: 44px !important;
+  flex: 0 0 78px !important;
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -181,5 +181,5 @@
 
 @media (max-width: 620px) {
   .login-brand { width: min(205px, 64vw) !important; margin-bottom: 14px !important; }
-  .topbar .logo { width: 92px !important; height: 50px !important; flex-basis: 92px !important; }
+  .topbar .logo { width: 71px !important; height: 40px !important; flex-basis: 71px !important; }
 }

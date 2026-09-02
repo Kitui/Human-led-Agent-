@@ -102,6 +102,32 @@ def test_main_app_shell_source_has_no_stale_branding_or_legacy_terminology():
     assert "All Organizations" in action_points_source
 
 
+def test_topbar_has_no_dead_help_or_notifications_buttons():
+    """Neither had any click handler or real destination -- Notifications had
+    no backend event system to wire to, and Help's only real destination
+    (the Swagger API reference) is a developer surface, not end-user help.
+    Removed rather than left as fake affordances."""
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    assert 'title="Help"' not in index_source
+    assert 'title="Notifications"' not in index_source
+
+
+def test_avatar_menu_exposes_a_real_logout_button():
+    """The avatar used to log the user out on a single click with no
+    confirmation UI, just a title tooltip. It now opens a small menu (like
+    the organization switcher) showing the signed-in username and an
+    explicit Log out button."""
+    index_source = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    main_source = (FRONTEND / "js" / "main.js").read_text(encoding="utf-8")
+
+    assert 'id="avatar-menu"' in index_source
+    assert 'id="avatar-menu-username"' in index_source
+    assert 'id="logout-btn"' in index_source
+    assert "Log out" in index_source
+    assert 'qs("#avatar-menu-username").textContent = username;' in main_source
+    assert 'qs("#logout-btn").addEventListener("click", logout);' in main_source
+
+
 def test_topbar_dropdowns_are_keyboard_operable():
     """The organization switcher and avatar/logout control were plain click
     targets with no role, tabindex, or keydown handling -- not operable from
