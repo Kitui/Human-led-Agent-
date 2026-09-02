@@ -8,7 +8,7 @@
   --border: #22344a;
   --text: #f5f7fb;
   --text-secondary: #a8b4c5;
-  --text-faint: #718097;
+  --text-faint: #7F8FA8; /* WCAG AA: 5.4:1 against --surface #0C192A (was #718097 at 4.4:1) */
   --primary: #ef2b32;
   --primary-hover: #d72029;
   --primary-bg: rgba(239, 43, 50, 0.12);
@@ -26,7 +26,7 @@
   --ca-border-strong: #30445d;
   --ca-text: #f5f7fb;
   --ca-muted: #a8b4c5;
-  --ca-faint: #718097;
+  --ca-faint: #7F8FA8;
   --ca-primary: #ef2b32;
   --ca-primary-hover: #d72029;
   --ca-primary-soft: rgba(239, 43, 50, 0.12);

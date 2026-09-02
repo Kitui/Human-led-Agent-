@@ -194,7 +194,7 @@ function renderEvalsScoreChart(runs) {
   const primary = cssVar("--primary", "#2563EB");
   const primaryBg = cssVar("--primary-bg", "#EFF6FF");
   const border = cssVar("--border", "#E5E7EB");
-  const textFaint = cssVar("--text-faint", "#9CA3AF");
+  const textFaint = cssVar("--text-faint", "#6B7686");
   const danger = cssVar("--danger", "#DC2626");
 
   evalsChartInstance = new Chart(qs("#evals-score-canvas").getContext("2d"), {
@@ -251,7 +251,7 @@ function renderPassFailBarChart(canvasEl, cats, names, { horizontal = true } = {
 
   const success = cssVar("--success", "#16A34A");
   const danger = cssVar("--danger", "#DC2626");
-  const textFaint = cssVar("--text-faint", "#9CA3AF");
+  const textFaint = cssVar("--text-faint", "#6B7686");
 
   const pctScale = { stacked: true, min: 0, max: 100, ticks: { color: textFaint, font: { size: 11 }, stepSize: 10, callback: (v) => `${v}%` } };
   const labelScale = { stacked: true, ticks: { color: textFaint, font: { size: 11.5 }, autoSkip: false } };

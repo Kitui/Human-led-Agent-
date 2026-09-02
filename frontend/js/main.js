@@ -15,36 +15,6 @@ import {
   currentTenantIds, currentUsername, logout, restoreBrowserSession,
 } from "./auth.js";
 
-/* Load the shared design-system override after styles.css. Keeping it as a
- * separate layer lets the standalone WebMCP workspaces use the same visual
- * language without coupling their page-specific CSS to this SPA. */
-if (!document.querySelector('link[data-correlact-ui]')) {
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = "/correlact-ui.css";
-  link.dataset.correlactUi = "true";
-  document.head.appendChild(link);
-}
-
-/* Layout fixes live after the base design layer. */
-if (!document.querySelector('link[data-correlact-layout]')) {
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = "/correlact-layout.css";
-  link.dataset.correlactLayout = "true";
-  document.head.appendChild(link);
-}
-
-/* The challenge theme is intentionally a final cascade layer. It changes
- * palette/branding without changing the authentication or workflow model. */
-if (!document.querySelector('link[data-correlact-theme]')) {
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = "/correlact-theme.css";
-  link.dataset.correlactTheme = "true";
-  document.head.appendChild(link);
-}
-
 /* Organization scope is a UI context, but the data boundary must follow it.
  * Some page modules call GET /runs through different helpers, so apply the
  * selected organization in one place before any request leaves the SPA.

@@ -2,6 +2,12 @@ import { getAuthSession } from "../shared.js";
 
 let registered = false;
 
+/* Billing has no backend route or database table (unlike CRM, which is real
+ * and PostgreSQL-backed, and whose renewal_status is the one piece of state
+ * WebMCP's controlled-execution tools are allowed to mutate). This dataset
+ * is a deliberately static evidence source representing a third external
+ * system for the agent to correlate against -- not a stubbed-out real
+ * integration. Do not read its lack of persistence as a bug. */
 const REFERENCE_INVOICES = [
   {
     invoice_id: "INV-ACME-2026-08",

@@ -52,34 +52,17 @@ async def test_deactivating_a_tenant_updates_its_status(client, auth_headers):
     assert response.json()["is_active"] is False
 
 
-async def test_deactivating_another_users_tenant_is_forbidden(client, auth_headers):
-    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
-
-    response = await client.patch(
-        "/tenants/Neptune",
-        json={"is_active": False},
-        headers=headers,
-    )
-
-    assert response.status_code == 403
-
-
 async def test_reading_another_users_tenant_settings_is_forbidden(client, auth_headers):
+    """The other two authorization variants (deactivating another org's
+    tenant, updating another org's settings) are covered by
+    test_organization_access_scope.py's own-organization equivalents --
+    every one of these routes is platform-admin-only regardless of which
+    slug is targeted, so a cross-org and a same-org non-admin request
+    exercise the identical check. This one is kept because
+    test_organization_access_scope.py has no GET-settings-forbidden case."""
     headers = await auth_headers("user@northstar.com", "northstar-test-pass")
 
     response = await client.get("/tenants/Neptune/settings", headers=headers)
-
-    assert response.status_code == 403
-
-
-async def test_updating_another_users_tenant_settings_is_forbidden(client, auth_headers):
-    headers = await auth_headers("user@northstar.com", "northstar-test-pass")
-
-    response = await client.patch(
-        "/tenants/Neptune/settings",
-        json={"max_steps": 10},
-        headers=headers,
-    )
 
     assert response.status_code == 403
 

@@ -12,7 +12,7 @@ from .models import AuthenticatedUser
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE = timedelta(hours=1)
 MIN_JWT_SECRET_BYTES = 32
-SESSION_COOKIE_NAME = "hlal_session"
+SESSION_COOKIE_NAME = "correlact_session"
 
 
 def _secret_key() -> str:

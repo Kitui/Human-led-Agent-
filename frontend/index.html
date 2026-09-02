@@ -6,6 +6,14 @@
 <title>CorrelAct</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" />
 <link rel="stylesheet" href="styles.css" />
+<!-- Design-system layers, in cascade order. Loaded statically in <head> (not
+     injected by main.js) so the browser requests them immediately instead of
+     after the module script parses -- login-view.js's revealStableLogin()
+     still finds them by these data attributes and waits for each to load
+     before showing the login screen, so FOUC-hiding is unaffected. -->
+<link rel="stylesheet" href="/correlact-ui.css" data-correlact-ui="true" />
+<link rel="stylesheet" href="/correlact-layout.css" data-correlact-layout="true" />
+<link rel="stylesheet" href="/correlact-theme.css" data-correlact-theme="true" />
 </head>
 <body>
 <div class="modal-overlay login-overlay" id="login-screen">

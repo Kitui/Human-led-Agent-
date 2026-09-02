@@ -13,7 +13,7 @@
  * hosting has been applied.
  */
 export const API_BASE = window.API_BASE || "";
-const HISTORY_KEY = "hlal_runs_history";
+const HISTORY_KEY = "correlact_runs_history";
 
 export const STATUS_COLORS = {
   new: "#9CA3AF",
@@ -162,7 +162,7 @@ export function traceIconSvg(kind) {
  * it's a bearer credential tied to a 1-hour token lifetime, not app data
  * worth keeping across browser restarts.
  */
-const AUTH_KEY = "hlal_auth_session";
+const AUTH_KEY = "correlact_auth_session";
 const NO_AUTH_PATHS = new Set(["/health", "/auth/login"]);
 
 function readStoredSession() {
