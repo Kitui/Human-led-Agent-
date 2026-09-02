@@ -10,7 +10,8 @@
  *    of invented cards.
  *  - "+ New Action Point" (and each column's "+ Add Action Point") imply
  *    manual creation, but action points are only ever produced by an
- *    investigation. Disabled, with a tooltip explaining why.
+ *    investigation -- removed rather than disabled, since there's no
+ *    backend capability behind them at all.
  *  - "Move to Next Stage" implies a manual per-stage advance, but
  *    approving a run already runs it through to completion in one step
  *    (see agent_lab/workflow.py's approve_run()). Disabled, same reason.
@@ -31,6 +32,8 @@ const COLUMN_DEFS = [
   { key: "completed", label: "Completed", tag: "Completed" },
 ];
 
+const CARDS_PER_PAGE = 2;
+
 const apState = {
   runs: [],
   search: "",
@@ -40,7 +43,12 @@ const apState = {
   dateFrom: "",
   dateTo: "",
   selectedRunId: null,
+  columnPage: { drafted: 0, awaiting_approval: 0, approved: 0, executing: 0, completed: 0 },
 };
+
+function resetColumnPages() {
+  Object.keys(apState.columnPage).forEach((key) => { apState.columnPage[key] = 0; });
+}
 
 let apDatePicker = null;
 let apWired = false;
@@ -65,6 +73,7 @@ function initDatePicker() {
         return;
       }
       clearBtn.hidden = !(apState.dateFrom && apState.dateTo);
+      resetColumnPages();
       renderActionPointsBody();
     },
   });
@@ -74,6 +83,7 @@ function initDatePicker() {
     apState.dateFrom = "";
     apState.dateTo = "";
     clearBtn.hidden = true;
+    resetColumnPages();
     renderActionPointsBody();
   });
 }
@@ -83,10 +93,10 @@ function initFilters() {
     `<option value="all">All Organizations</option>` +
     currentTenantIds().map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
 
-  qs("#ap-search").addEventListener("input", (e) => { apState.search = e.target.value.trim().toLowerCase(); renderActionPointsBody(); });
-  qs("#ap-tenant-filter").addEventListener("change", (e) => { apState.tenant = e.target.value; renderActionPointsBody(); });
-  qs("#ap-status-filter").addEventListener("change", (e) => { apState.status = e.target.value; renderActionPointsBody(); });
-  qs("#ap-priority-filter").addEventListener("change", (e) => { apState.priority = e.target.value; renderActionPointsBody(); });
+  qs("#ap-search").addEventListener("input", (e) => { apState.search = e.target.value.trim().toLowerCase(); resetColumnPages(); renderActionPointsBody(); });
+  qs("#ap-tenant-filter").addEventListener("change", (e) => { apState.tenant = e.target.value; resetColumnPages(); renderActionPointsBody(); });
+  qs("#ap-status-filter").addEventListener("change", (e) => { apState.status = e.target.value; resetColumnPages(); renderActionPointsBody(); });
+  qs("#ap-priority-filter").addEventListener("change", (e) => { apState.priority = e.target.value; resetColumnPages(); renderActionPointsBody(); });
   qs("#ap-refresh-btn").addEventListener("click", async () => {
     apState.runs = await getAllKnownRuns();
     renderActionPointsBody();
@@ -211,20 +221,40 @@ function renderActionPointCard(run, columnTag) {
   `;
 }
 
+function renderKanbanPagination(colKey, totalPages, page) {
+  if (totalPages <= 1) return "";
+  return `
+    <div class="kanban-pagination" data-col="${colKey}">
+      <button class="kanban-page-btn" data-dir="prev" ${page === 0 ? "disabled" : ""} aria-label="Previous page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <span class="kanban-page-label">${page + 1} / ${totalPages}</span>
+      <button class="kanban-page-btn" data-dir="next" ${page === totalPages - 1 ? "disabled" : ""} aria-label="Next page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+  `;
+}
+
 function renderKanbanBoard(runs) {
   const groups = groupByColumn(runs);
   qs("#kanban-board").innerHTML = COLUMN_DEFS.map((col) => {
     const items = groups[col.key];
+    const totalPages = Math.max(1, Math.ceil(items.length / CARDS_PER_PAGE));
+    apState.columnPage[col.key] = Math.min(apState.columnPage[col.key], totalPages - 1);
+    const page = apState.columnPage[col.key];
+    const pageItems = items.slice(page * CARDS_PER_PAGE, page * CARDS_PER_PAGE + CARDS_PER_PAGE);
+
     const body = col.key === "drafted"
       ? `<p class="empty-note">This system doesn't have a separate drafting stage — investigations go straight to Awaiting Approval or Completed.</p>`
       : items.length
-        ? `<div class="kanban-card-list">${items.map((r) => renderActionPointCard(r, col.tag)).join("")}</div>`
+        ? `<div class="kanban-card-list">${pageItems.map((r) => renderActionPointCard(r, col.tag)).join("")}</div>`
         : `<p class="empty-note">No action points here.</p>`;
     return `
       <div class="kanban-column">
         <div class="kanban-column-head"><span>${escapeHtml(col.label)}</span><span class="kanban-column-count">${items.length}</span></div>
         ${body}
-        <button class="btn btn-outline kanban-add-btn" disabled title="Action points are only created by an investigation, never added manually.">+ Add Action Point</button>
+        ${renderKanbanPagination(col.key, totalPages, page)}
       </div>
     `;
   }).join("");
@@ -233,6 +263,14 @@ function renderKanbanBoard(runs) {
     card.addEventListener("click", () => {
       apState.selectedRunId = card.dataset.runId;
       renderDetailPanel();
+    });
+  });
+
+  qsa(".kanban-page-btn", qs("#kanban-board")).forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const colKey = btn.closest(".kanban-pagination").dataset.col;
+      apState.columnPage[colKey] += btn.dataset.dir === "next" ? 1 : -1;
+      renderKanbanBoard(apState.runs);
     });
   });
 }
