@@ -6,7 +6,7 @@
 
 CorrelAct lets a browser-native AI agent read evidence across CRM, Billing, and Support, correlate it into one proposed action, and execute consequential work *only* after a human has explicitly approved exactly that action.
 
-[![CI](https://github.com/Kitui/Human-led-Agent-/actions/workflows/ci.yml/badge.svg)](https://github.com/Kitui/Human-led-Agent-/actions/workflows/ci.yml)
+[![CI](https://github.com/Kitui/CorrelAct/actions/workflows/ci.yml/badge.svg)](https://github.com/Kitui/CorrelAct/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](requirements.txt)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](agent_lab/api.py)
